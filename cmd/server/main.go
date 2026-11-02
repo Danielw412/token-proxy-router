@@ -34,6 +34,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/safemode"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/store"
+	tprcli "github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/cli" // TPR
 	_ "github.com/router-for-me/CLIProxyAPI/v8/internal/translator"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/tui"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
@@ -72,6 +73,11 @@ func shouldEnableExampleAPIKeySafeMode(cfg *config.Config, commandMode, tuiMode,
 // It parses command-line flags, loads configuration, and starts the appropriate
 // service based on the provided flags (login, codex-login, or server mode).
 func main() {
+	if tprcli.Dispatch(tprcli.Build{Version: Version, Commit: Commit, Date: BuildDate}) { // TPR: tpr subcommands
+		return
+	}
+	DefaultConfigPath = tprcli.DefaultConfigPath(DefaultConfigPath) // TPR: config lives in the data folder
+
 	if len(os.Args) > 1 && os.Args[1] == "discover" {
 		discoverFlags := flag.NewFlagSet("discover", flag.ExitOnError)
 		timeoutSec := discoverFlags.Int("timeout", 3, "Discovery timeout in seconds")
@@ -83,7 +89,7 @@ func main() {
 		discoverFlags.Func("exclude", "Comma-separated interface names to skip", appendCSV(&exclude))
 		_ = discoverFlags.Parse(os.Args[2:])
 		if !*jsonOut {
-			fmt.Fprintf(os.Stderr, "CLIProxyAPI Version: %s, Commit: %s, BuiltAt: %s\n", buildinfo.Version, buildinfo.Commit, buildinfo.BuildDate)
+			fmt.Fprintf(os.Stderr, "Token Proxy Router Version: %s, Commit: %s, BuiltAt: %s\n", buildinfo.Version, buildinfo.Commit, buildinfo.BuildDate) // TPR
 		}
 		cfgInclude, cfgExclude := cmd.LoadDiscoveryScanFilters(*configPathFlag)
 		include, exclude = cmd.ResolveDiscoveryInterfaceFilters(include, exclude, cfgInclude, cfgExclude)
@@ -101,7 +107,7 @@ func main() {
 	isJSONDiscover := argvEnablesBoolFlag(os.Args[1:], "discover-json")
 	isDiscoverMode := isJSONDiscover || argvEnablesBoolFlag(os.Args[1:], "discover")
 	if !isJSONDiscover {
-		fmt.Printf("CLIProxyAPI Version: %s, Commit: %s, BuiltAt: %s\n", buildinfo.Version, buildinfo.Commit, buildinfo.BuildDate)
+		fmt.Printf("Token Proxy Router Version: %s, Commit: %s, BuiltAt: %s\n", buildinfo.Version, buildinfo.Commit, buildinfo.BuildDate) // TPR
 	}
 
 	// Command-line flags to control the application's behavior.
@@ -586,6 +592,7 @@ func main() {
 		}
 	} else if configPath != "" {
 		configFilePath = configPath
+		tprcli.BeforeConfigLoad(configPath) // TPR: first run and staged restore
 		cfg, err = config.LoadConfigOptional(configPath, isCloudDeploy)
 	} else {
 		wd, err = os.Getwd()
@@ -638,7 +645,7 @@ func main() {
 		return
 	}
 
-	log.Infof("CLIProxyAPI Version: %s, Commit: %s, BuiltAt: %s", buildinfo.Version, buildinfo.Commit, buildinfo.BuildDate)
+	log.Infof("Token Proxy Router Version: %s, Commit: %s, BuiltAt: %s", buildinfo.Version, buildinfo.Commit, buildinfo.BuildDate) // TPR
 
 	// Set the log level based on the configuration.
 	util.SetLogLevel(cfg)
