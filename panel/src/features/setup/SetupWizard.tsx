@@ -145,7 +145,7 @@ export function SetupWizard({ onClose }: { onClose: () => void }) {
       {step === 2 && (
         <div className={styles.body}>
           <p className={styles.lead}>{t('tpr.wizard.connect_lead')}</p>
-          <ConnectPanel compact />
+          <ConnectPanel />
         </div>
       )}
 

@@ -215,17 +215,20 @@ type SeriesPoint struct {
 
 // KeyUsage is one key's row in GET /usage/keys.
 type KeyUsage struct {
-	KeyID        string        `json:"key_id"`
-	Name         string        `json:"name"`
-	Masked       string        `json:"masked"`
-	Requests     int64         `json:"requests"`
-	Failures     int64         `json:"failures"`
-	InputTokens  int64         `json:"input_tokens"`
-	OutputTokens int64         `json:"output_tokens"`
-	CachedTokens int64         `json:"cached_tokens"`
-	LastUsedAt   *time.Time    `json:"last_used_at"`
-	Models       []ModelUsage  `json:"models"`
-	Series       []SeriesPoint `json:"series"`
+	KeyID        string `json:"key_id"`
+	Name         string `json:"name"`
+	Masked       string `json:"masked"`
+	Requests     int64  `json:"requests"`
+	Failures     int64  `json:"failures"`
+	InputTokens  int64  `json:"input_tokens"`
+	OutputTokens int64  `json:"output_tokens"`
+	CachedTokens int64  `json:"cached_tokens"`
+	// TotalTokens comes from the provider. Cached tokens may already be part of
+	// input tokens, so the other fields must not simply be added together.
+	TotalTokens int64         `json:"total_tokens"`
+	LastUsedAt  *time.Time    `json:"last_used_at"`
+	Models      []ModelUsage  `json:"models"`
+	Series      []SeriesPoint `json:"series"`
 }
 
 // Report builds the usage table: every configured key, used or not, plus any key
@@ -305,6 +308,7 @@ func buildRow(id, name, masked string, hours []store.KeyHour, from time.Time, lo
 	row.InputTokens = total.InputTokens
 	row.OutputTokens = total.OutputTokens
 	row.CachedTokens = total.CachedTokens
+	row.TotalTokens = total.TotalTokens
 	if total.LastUsed > 0 {
 		last := time.Unix(total.LastUsed, 0).UTC()
 		row.LastUsedAt = &last

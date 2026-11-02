@@ -106,7 +106,16 @@ func handlePools(c *gin.Context) {
 		badRequest(c, "future must be same, idle or double")
 		return
 	}
-	pools, at, err := s.Pools(Query{From: from, To: to, Burn: burn, Window: window, Future: future})
+	var accounts map[string]bool
+	if raw := strings.TrimSpace(c.Query("accounts")); raw != "" {
+		accounts = map[string]bool{}
+		for _, id := range strings.Split(raw, ",") {
+			if id = strings.TrimSpace(id); id != "" {
+				accounts[id] = true
+			}
+		}
+	}
+	pools, at, err := s.Pools(Query{From: from, To: to, Burn: burn, Window: window, Future: future, Accounts: accounts})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read quota history"})
 		return

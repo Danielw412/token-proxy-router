@@ -340,3 +340,40 @@ func TestAPIContract(t *testing.T) {
 		t.Fatalf("second refresh: %d %v", w.Code, w.Header())
 	}
 }
+
+// Filtering uses the same forecast as a whole pool, so a reset adds back only what the
+// chosen account had used, not a full account's worth.
+func TestPoolsFilterToChosenAccounts(t *testing.T) {
+	s, _, r := newService(t)
+	reset := now.Add(2 * time.Hour)
+	engineA := r.Pool("claude").Engine
+	s.Observe("claude", "claude-a", reading(now, 5, 10, reset))
+	s.Observe("claude", "claude-b", reading(now, 5, 90, reset))
+	engineA.ApplyPolledQuota("claude-a", reading(now, 5, 10, reset), nil)
+	engineA.ApplyPolledQuota("claude-b", reading(now, 5, 90, reset), nil)
+
+	query := Query{From: now.Add(-day), To: now.Add(day), Burn: 3 * time.Hour, Window: WindowWeekly, Future: FutureIdle, Accounts: map[string]bool{"claude-a": true}}
+	pools, _, err := s.Pools(query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pools) != 1 || pools[0].Provider != "claude" {
+		t.Fatalf("a pool with none of the chosen accounts must be left out: %+v", pools)
+	}
+	pool := pools[0]
+	if len(pool.Accounts) != 1 || pool.Accounts[0].ID != "claude-a" {
+		t.Fatalf("accounts = %+v", pool.Accounts)
+	}
+	if pool.RemainingPercent != 90 || pool.CapacityPercent != 100 {
+		t.Fatalf("remaining = %v of %v", pool.RemainingPercent, pool.CapacityPercent)
+	}
+	for _, point := range pool.Projected {
+		if point.Percent > pool.CapacityPercent {
+			t.Fatalf("forecast went above capacity: %+v", point)
+		}
+	}
+
+	if _, _, err := s.Pools(Query{From: now.Add(-day), To: now.Add(day), Burn: 3 * time.Hour, Window: WindowWeekly, Future: FutureIdle, Accounts: map[string]bool{"nobody": true}}); err != nil {
+		t.Fatalf("an unknown account is not an error: %v", err)
+	}
+}

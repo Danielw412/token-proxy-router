@@ -521,6 +521,8 @@ export interface KeyUsage {
   inputTokens: number;
   outputTokens: number;
   cachedTokens: number;
+  /** The provider's own total. Cached tokens can already be inside input tokens. */
+  totalTokens: number;
   lastUsedAt: string | null;
   models: Array<{ model: string; requests: number; totalTokens: number }>;
   series: Array<{ at: string; requests: number; totalTokens: number }>;
@@ -538,6 +540,7 @@ const normalizeUsage = (raw: unknown): KeyUsage[] =>
       inputTokens: asNumber(key.input_tokens) ?? 0,
       outputTokens: asNumber(key.output_tokens) ?? 0,
       cachedTokens: asNumber(key.cached_tokens) ?? 0,
+      totalTokens: asNumber(key.total_tokens) ?? 0,
       lastUsedAt: asString(key.last_used_at) || null,
       models: asArray(key.models)
         .map(asRecord)
@@ -629,6 +632,9 @@ export interface TprSnippets {
   linux: string;
   windows: string;
   codex_toml: string;
+  codex_env: string;
+  codex_env_windows: string;
+  codex_run: string;
   claude_env: string;
   claude_env_windows: string;
   t3: string;
@@ -670,13 +676,8 @@ export const tprApi = {
     burn: BurnWindow;
     window: QuotaWindow;
     future: FutureUsage;
+    accounts?: string;
   }) => normalizePoolsResponse(await apiClient.get(`${BASE}/quota/pools`, { params })),
-  accountHistory: async (id: string, params: { from: string; to: string; window: QuotaWindow }) => {
-    const data = asRecord(
-      await apiClient.get(`${BASE}/quota/accounts/${encodeURIComponent(id)}/history`, { params })
-    );
-    return normalizePoints(data.samples ?? data.history ?? data.recorded);
-  },
   refreshQuota: () => apiClient.post(`${BASE}/quota/refresh`),
 
   routerPools: async (history = 30) => {
@@ -759,7 +760,7 @@ export const tprApi = {
     );
     return response.data as Blob;
   },
-  restore: (file: File, passphrase: string) => {
+  restore: (file: File, passphrase: string): Promise<{ restart_required?: boolean } | undefined> => {
     const form = new FormData();
     form.append('file', file);
     form.append('passphrase', passphrase);

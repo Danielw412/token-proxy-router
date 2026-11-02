@@ -26,6 +26,7 @@ import {
   runPath,
   splitRuns,
   steppedRun,
+  clipToRange,
   toTimed,
   valueAtTime,
   yTicks,
@@ -133,7 +134,7 @@ export function PoolChart({
     [from, model.recorded, now, to]
   );
   const visibleProjected = useMemo(
-    () => model.projected.filter((point) => point.at >= from && point.at <= to),
+    () => clipToRange(model.projected, from, to),
     [from, model.projected, to]
   );
 

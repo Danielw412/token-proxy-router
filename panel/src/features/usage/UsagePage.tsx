@@ -23,8 +23,7 @@ type UsageRange = '1d' | '7d' | '30d';
 
 const RANGE_DAYS: Record<UsageRange, number> = { '1d': 1, '7d': 7, '30d': 30 };
 
-const totalTokens = (key: KeyUsage): number =>
-  key.inputTokens + key.outputTokens + key.cachedTokens;
+const totalTokens = (key: KeyUsage): number => key.totalTokens;
 
 export function UsagePage() {
   const { t, i18n } = useTranslation();

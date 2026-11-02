@@ -11,6 +11,7 @@ import {
   PageHeader,
   Panel,
   PrivateEmail,
+  PrivateText,
   ProviderIcon,
   ProviderName,
   ResourceError,
@@ -185,8 +186,10 @@ export function AccountsPage() {
                       <li key={account.id} className={styles.row}>
                         <div className={styles.name}>
                           <PrivateEmail value={account.email} fallback={account.label || account.id} />
-                          {account.label && account.email ? (
-                            <span className={styles.label}>{account.label}</span>
+                          {account.label && account.email && account.label !== account.email ? (
+                            <span className={styles.label}>
+                              <PrivateText text={account.label} />
+                            </span>
                           ) : null}
                         </div>
                         <div className={styles.status}>

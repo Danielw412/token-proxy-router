@@ -3,7 +3,7 @@
  * No React and no DOM, so all of it is unit tested directly.
  */
 
-import type { PoolAccount, QuotaPoint, QuotaPool } from '@/services/api/tpr';
+import type { QuotaPoint } from '@/services/api/tpr';
 
 export const HOUR_MS = 3_600_000;
 export const DAY_MS = 24 * HOUR_MS;
@@ -389,139 +389,29 @@ export const niceDrainMax = (values: Array<number | null>): number => {
   return Math.ceil(max / step) * step;
 };
 
-/* --------------------------------- filtering -------------------------------- */
+/* ---------------------------------- clipping --------------------------------- */
 
 /**
- * Pool view for a subset of accounts. The API aggregates server-side, so a subset is rebuilt
- * from each account's own history: weighted sums for the past, then a simple linear forecast.
+ * The part of a line inside [from, to], with new points where it crosses either edge. Without
+ * them, a forecast that spans the whole visible range has nothing left to draw.
  */
-export const aggregateAccounts = (input: {
-  pool: QuotaPool;
-  selected: ReadonlySet<string>;
-  histories: Readonly<Record<string, QuotaPoint[]>>;
-  now: number;
-  to: number;
-  burnHours: number;
-  futureMultiplier: number;
-}): QuotaPool => {
-  const { pool, selected, histories, now, to, burnHours, futureMultiplier } = input;
-  const accounts: PoolAccount[] = pool.accounts.filter((account) => selected.has(account.id));
-  const capacity = accounts.reduce((sum, account) => sum + 100 * account.weight, 0);
-  const remaining = accounts.reduce(
-    (sum, account) => sum + (account.remainingPercent ?? 0) * account.weight,
-    0
-  );
-
-  const perAccount = accounts.map((account) => ({
-    account,
-    points: toTimed(histories[account.id] ?? []).filter((point) => point.value !== null),
-  }));
-  const times = Array.from(new Set(perAccount.flatMap(({ points }) => points.map((point) => point.at)))).sort(
-    (a, b) => a - b
-  );
-  const cursors = perAccount.map(() => 0);
-  const recordedTimed: TimedValue[] = times.map((at) => {
-    let total = 0;
-    let known = 0;
-    perAccount.forEach(({ account, points }, index) => {
-      while (cursors[index] + 1 < points.length && points[cursors[index] + 1].at <= at) {
-        cursors[index] += 1;
-      }
-      const point = points[cursors[index]];
-      if (point && point.at <= at && point.value !== null) {
-        total += point.value * account.weight;
-        known += 1;
-      }
-    });
-    return { at, value: known ? total : null };
-  });
-  if (recordedTimed.length && accounts.length) recordedTimed.push({ at: now, value: remaining });
-
-  const windowStart = now - burnHours * HOUR_MS;
-  const inWindow = recordedTimed.filter((point) => point.at >= windowStart);
-  let used = 0;
-  for (let index = 1; index < inWindow.length; index += 1) {
-    const drop = (inWindow[index - 1].value ?? 0) - (inWindow[index].value ?? 0);
-    if (drop > 0) used += drop;
-  }
-  const burn = used / burnHours;
-  const futureBurn = burn * futureMultiplier;
-
-  const resets = accounts
-    .flatMap((account) => {
-      const first = account.resetAt ? Date.parse(account.resetAt) : NaN;
-      if (!Number.isFinite(first)) return [];
-      const times: Array<{ at: number; delta: number }> = [];
-      for (let at = first; at <= to; at += 7 * DAY_MS) {
-        if (at > now) times.push({ at, delta: 100 * account.weight });
-      }
-      return times;
-    })
-    .sort((a, b) => a.at - b.at);
-
-  const projected: QuotaPoint[] = [{ at: new Date(now).toISOString(), percent: remaining }];
-  const resetMarks: QuotaPool['resets'] = [];
-  const emptyMarks: QuotaPool['emptyMarks'] = [];
-  let value = remaining;
-  let cursor = now;
-  let poolEmptyAt: string | null = null;
-  const burnTo = (target: number) => {
-    const needed = ((target - cursor) / HOUR_MS) * futureBurn;
-    if (futureBurn > 0 && value - needed <= 0) {
-      const at = cursor + (value / futureBurn) * HOUR_MS;
-      const iso = new Date(at).toISOString();
-      projected.push({ at: iso, percent: 0 });
-      poolEmptyAt = poolEmptyAt ?? iso;
-      emptyMarks.push({ at: iso, label: 'Empty' });
-      value = 0;
-    } else {
-      value -= needed;
+export const clipToRange = (points: readonly TimedValue[], from: number, to: number): TimedValue[] => {
+  const out: TimedValue[] = [];
+  const crossing = (a: TimedValue, b: TimedValue, at: number): TimedValue | null => {
+    if (a.value === null || b.value === null || b.at === a.at) return null;
+    return { at, value: a.value + ((b.value - a.value) * (at - a.at)) / (b.at - a.at) };
+  };
+  points.forEach((point, index) => {
+    const previous = points[index - 1];
+    if (previous && previous.at < from && point.at > from) {
+      const edge = crossing(previous, point, from);
+      if (edge) out.push(edge);
     }
-    projected.push({ at: new Date(target).toISOString(), percent: value });
-    cursor = target;
-  };
-  resets.forEach((reset) => {
-    burnTo(reset.at);
-    const next = Math.min(capacity, value + reset.delta);
-    resetMarks.push({ at: new Date(reset.at).toISOString(), deltaPercent: Math.round(next - value), projected: true });
-    value = next;
-    projected.push({ at: new Date(reset.at).toISOString(), percent: value });
+    if (point.at >= from && point.at <= to) out.push(point);
+    if (previous && previous.at < to && point.at > to) {
+      const edge = crossing(previous, point, to);
+      if (edge) out.push(edge);
+    }
   });
-  if (cursor < to) burnTo(to);
-
-  const nextReset = resetMarks[0]
-    ? { at: resetMarks[0].at, deltaPercent: resetMarks[0].deltaPercent }
-    : null;
-  const lowest = accounts.reduce<PoolAccount | null>(
-    (low, account) =>
-      low === null || (account.remainingPercent ?? 0) < (low.remainingPercent ?? 0) ? account : low,
-    null
-  );
-  const lowestShare = lowest && capacity > 0 ? (100 * lowest.weight) / capacity : 0;
-  return {
-    ...pool,
-    accounts,
-    remainingPercent: remaining,
-    capacityPercent: capacity,
-    poolEmptyAt,
-    firstEmpty:
-      lowest && futureBurn > 0 && lowestShare > 0
-        ? {
-            account: lowest.id,
-            at: new Date(
-              now + (((lowest.remainingPercent ?? 0) * lowest.weight) / (futureBurn * lowestShare)) * HOUR_MS
-            ).toISOString(),
-          }
-        : null,
-    nextReset,
-    burnPerHour: burn,
-    recorded: recordedTimed.map((point) => ({ at: new Date(point.at).toISOString(), percent: point.value })),
-    projected,
-    resets: resetMarks,
-    emptyMarks,
-    coverage: {
-      firstSampleAt: recordedTimed[0] ? new Date(recordedTimed[0].at).toISOString() : null,
-      samples: recordedTimed.length,
-    },
-  };
+  return out;
 };

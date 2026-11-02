@@ -201,6 +201,9 @@ type Query struct {
 	Burn     time.Duration
 	Window   string
 	Future   string
+	// Accounts limits the numbers to these account IDs. Empty means every account.
+	// Plan weights still come from the whole pool, so a filter does not rescale them.
+	Accounts map[string]bool
 }
 
 // AccountView is one account in a pool's response.
@@ -236,6 +239,9 @@ func (s *Service) Pools(q Query) ([]PoolView, time.Time, error) {
 		view, err := s.poolView(provider, pool, now, q)
 		if err != nil {
 			return nil, now, err
+		}
+		if len(q.Accounts) > 0 && len(view.Accounts) == 0 {
+			continue
 		}
 		out = append(out, view)
 	}
@@ -280,6 +286,9 @@ func (s *Service) poolView(provider string, pool *router.Pool, now time.Time, q 
 	inputs := make([]AccountInput, 0, len(accounts))
 	var firstSample *time.Time
 	for _, a := range accounts {
+		if len(q.Accounts) > 0 && !q.Accounts[a.ID] {
+			continue
+		}
 		w := a.Long
 		period := 7 * 24 * time.Hour
 		if q.Window == WindowSession {

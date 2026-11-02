@@ -16,7 +16,7 @@ type ConnectTab = 'linux' | 'windows' | 'codex' | 'claude' | 't3';
  * Hub and key pickers plus copy-ready commands. Snippets carry the real key, so they
  * are fetched only on request and held only in this component's state.
  */
-export function ConnectPanel({ compact = false }: { compact?: boolean }) {
+export function ConnectPanel() {
   const { t } = useTranslation();
   const showNotification = useNotificationStore((state) => state.showNotification);
   const { data, loading, error, errorStatus, refresh } = useTprResource(() => tprApi.connect(), []);
@@ -95,14 +95,6 @@ export function ConnectPanel({ compact = false }: { compact?: boolean }) {
         </Note>
       )}
 
-      {!compact && data.install.linux && (
-        <div className={styles.install}>
-          <div className={styles.installTitle}>{t('tpr.connect.install_title')}</div>
-          <CodeBlock code={data.install.linux} label={t('tpr.connect.install_linux')} />
-          <CodeBlock code={data.install.windows} label={t('tpr.connect.install_windows')} />
-        </div>
-      )}
-
       <Segmented<ConnectTab>
         ariaLabel={t('tpr.connect.tabs')}
         value={tab}
@@ -133,7 +125,14 @@ export function ConnectPanel({ compact = false }: { compact?: boolean }) {
         <div className={styles.snippets}>
           {tab === 'linux' && <CodeBlock code={snippets.linux} />}
           {tab === 'windows' && <CodeBlock code={snippets.windows} />}
-          {tab === 'codex' && <CodeBlock code={snippets.codex_toml} label={t('tpr.connect.codex_file')} />}
+          {tab === 'codex' && (
+            <>
+              <CodeBlock code={snippets.codex_toml} label={t('tpr.connect.codex_file')} />
+              <CodeBlock code={snippets.codex_env} label={t('tpr.connect.codex_key_linux')} />
+              <CodeBlock code={snippets.codex_env_windows} label={t('tpr.connect.codex_key_windows')} />
+              <CodeBlock code={snippets.codex_run} label={t('tpr.connect.codex_run')} />
+            </>
+          )}
           {tab === 'claude' && (
             <>
               <CodeBlock code={snippets.claude_env} label={t('tpr.connect.claude_linux')} />

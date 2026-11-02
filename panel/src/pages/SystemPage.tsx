@@ -249,7 +249,9 @@ function UpdateCard({
         data
           ? data.available
             ? t('tpr.system.update_available', { current: data.current, latest: data.latest })
-            : t('tpr.system.update_current', { current: data.current })
+            : data.error
+              ? t('tpr.system.update_unknown', { current: data.current })
+              : t('tpr.system.update_current', { current: data.current })
           : undefined
       }
       actions={
@@ -285,7 +287,7 @@ function UpdateCard({
               </ol>
             </div>
           )}
-          {data.state === 'failed' && data.error && <Note tone="error">{data.error}</Note>}
+          {data.error && <Note tone={data.state === 'failed' ? 'error' : 'warn'}>{data.error}</Note>}
           {!data.can_apply && data.available && data.reason && <Note tone="warn">{data.reason}</Note>}
           {data.available && data.notes && (
             <div className={styles.notes}>
@@ -519,11 +521,16 @@ function BackupCard({ onError }: { onError: (err: unknown) => void }) {
       onConfirm: async () => {
         setBusy(true);
         try {
-          await tprApi.restore(restoreFile, restorePassphrase);
+          const result = await tprApi.restore(restoreFile, restorePassphrase);
           setRestoreOpen(false);
           setRestorePassphrase('');
           setRestoreFile(null);
-          showNotification(t('tpr.system.restore_done'), 'success');
+          // Only a server run by the service restarts by itself.
+          if (result?.restart_required) {
+            showNotification(t('tpr.system.restore_needs_restart'), 'warning');
+          } else {
+            showNotification(t('tpr.system.restore_done'), 'success');
+          }
         } catch (err) {
           onError(err);
         } finally {

@@ -88,7 +88,12 @@ jobs:
           (cd release && sha256sum "$asset" > checksums.txt)
           python="$(command -v python3 || command -v python)"
           "$python" -m http.server 18400 --bind 127.0.0.1 --directory release >/dev/null 2>&1 &
-          sleep 2
+          # Wait until it answers: a slow runner takes longer than any fixed pause.
+          for _ in $(seq 1 60); do
+            curl -fs -m 2 -o /dev/null http://127.0.0.1:18400/checksums.txt && break
+            sleep 1
+          done
+          curl -fs -m 2 -o /dev/null http://127.0.0.1:18400/checksums.txt
       - name: Prepare a temporary home
         run: |
           smoke_home="$RUNNER_TEMP/smoke-home"

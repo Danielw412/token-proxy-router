@@ -19,13 +19,11 @@ import {
   tprApi,
   type BurnWindow,
   type FutureUsage,
-  type QuotaPoint,
   type QuotaPool,
   type QuotaPoolsResponse,
 } from '@/services/api/tpr';
 import {
   DAY_MS,
-  aggregateAccounts,
   formatShortDate,
   startOfLocalDay,
 } from './chart/chartModel';
@@ -38,11 +36,6 @@ const DAYS_BACK = 3;
 const DAYS_FORWARD = 11;
 const SHIFT_DAYS = 7;
 const REFRESH_MS = 60_000;
-
-const burnHoursOf = (burn: BurnWindow): number => Number.parseInt(burn, 10) || 3;
-
-const futureMultiplierOf = (future: FutureUsage): number =>
-  future === 'idle' ? 0 : future === 'double' ? 2 : 1;
 
 export interface PoolsPanelProps {
   /** Provider filter from the page's pills. "all" shows every pool. */
@@ -61,6 +54,7 @@ export function PoolsPanel({ provider, refreshToken, onLoaded }: PoolsPanelProps
   const [future, setFuture] = useState<FutureUsage>(ui.future);
   const [offsetDays, setOffsetDays] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [allPools, setAllPools] = useState<QuotaPool[]>([]);
 
   useEffect(() => {
     writePoolsUi({ mode, burn, future });
@@ -71,6 +65,9 @@ export function PoolsPanel({ provider, refreshToken, onLoaded }: PoolsPanelProps
   const from = today + (offsetDays - DAYS_BACK) * DAY_MS;
   const to = today + (offsetDays + DAYS_FORWARD) * DAY_MS;
 
+  // The server forecasts a chosen subset the same way it forecasts a whole pool.
+  const selectedIds = useMemo(() => Array.from(selected).sort().join(','), [selected]);
+
   const resource = useTprResource(
     () =>
       tprApi.quotaPools({
@@ -79,20 +76,25 @@ export function PoolsPanel({ provider, refreshToken, onLoaded }: PoolsPanelProps
         burn,
         window: 'weekly',
         future,
+        ...(selectedIds ? { accounts: selectedIds } : {}),
       }),
-    [from, to, burn, future, refreshToken],
+    [from, to, burn, future, refreshToken, selectedIds],
     { intervalMs: REFRESH_MS }
   );
   const { data, loading, error, errorStatus, refresh } = resource;
 
   useEffect(() => {
-    if (data) onLoaded?.(data);
+    // Page-wide counts and the account list describe everything, not the current filter.
+    if (data && !selectedIds) {
+      onLoaded?.(data);
+      setAllPools(data.pools);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
   const accountOptions = useMemo(
     () =>
-      (data?.pools ?? [])
+      allPools
         .filter((pool) => provider === 'all' || pool.provider === provider)
         .flatMap((pool) =>
           pool.accounts.map((account) => ({
@@ -105,61 +107,15 @@ export function PoolsPanel({ provider, refreshToken, onLoaded }: PoolsPanelProps
             ),
           }))
         ),
-    [data, provider]
+    [allPools, provider]
   );
-
-  // A subset cannot come from the aggregated endpoint, so its accounts' histories are fetched.
-  const selectedIds = useMemo(() => Array.from(selected).sort().join(','), [selected]);
-  const [histories, setHistories] = useState<Record<string, QuotaPoint[]>>({});
-  useEffect(() => {
-    if (!selectedIds) {
-      setHistories({});
-      return;
-    }
-    let cancelled = false;
-    const ids = selectedIds.split(',');
-    void Promise.all(
-      ids.map(async (id) => {
-        try {
-          const samples = await tprApi.accountHistory(id, {
-            from: new Date(from).toISOString(),
-            to: new Date(to).toISOString(),
-            window: 'weekly',
-          });
-          return [id, samples] as const;
-        } catch {
-          return [id, [] as QuotaPoint[]] as const;
-        }
-      })
-    ).then((entries) => {
-      if (!cancelled) setHistories(Object.fromEntries(entries));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [from, selectedIds, to]);
 
   const now = data?.now ? Date.parse(data.now) : tick;
 
-  const pools = useMemo<QuotaPool[]>(() => {
-    const all = (data?.pools ?? []).filter(
-      (pool) => provider === 'all' || pool.provider === provider
-    );
-    if (selected.size === 0) return all;
-    return all
-      .filter((pool) => pool.accounts.some((account) => selected.has(account.id)))
-      .map((pool) =>
-        aggregateAccounts({
-          pool,
-          selected,
-          histories,
-          now,
-          to,
-          burnHours: burnHoursOf(burn),
-          futureMultiplier: futureMultiplierOf(future),
-        })
-      );
-  }, [burn, data, future, histories, now, provider, selected, to]);
+  const pools = useMemo<QuotaPool[]>(
+    () => (data?.pools ?? []).filter((pool) => provider === 'all' || pool.provider === provider),
+    [data, provider]
+  );
 
   const shift = useCallback((days: number) => setOffsetDays((value) => value + days), []);
 

@@ -17,6 +17,11 @@ import (
 
 func routeEnv(t *testing.T, host string, fake *fakeCLI) *gin.Engine {
 	t.Helper()
+	// These cover the route logic on every OS. Whether an OS supports the feature has
+	// its own test below.
+	savedSupported := identitySupported
+	identitySupported = true
+	t.Cleanup(func() { identitySupported = savedSupported })
 	dir := t.TempDir()
 	t.Setenv(home.EnvHome, dir)
 	if err := home.Ensure(); err != nil {
@@ -93,6 +98,25 @@ func TestIdentityEnableRefusedOnNonLoopbackBind(t *testing.T) {
 	}
 	if LoadState().Identity.Enabled {
 		t.Fatal("identity must stay off")
+	}
+}
+
+func TestIdentityIsRefusedWhereAConnectionsOwnerCantBeChecked(t *testing.T) {
+	fake := &fakeCLI{responses: map[string]fakeResponse{"status --json": running(), "serve status --json": {stdout: "{}"}}}
+	engine := routeEnv(t, "127.0.0.1", fake)
+	identitySupported = false
+
+	rr := call(engine, http.MethodPut, "/tailscale/identity", `{"enabled":true,"allowed_logins":["alice@example.com"]}`)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	rr = call(engine, http.MethodGet, "/tailscale", "")
+	var report Report
+	if err := json.Unmarshal(rr.Body.Bytes(), &report); err != nil {
+		t.Fatal(err)
+	}
+	if report.Identity.Available {
+		t.Fatalf("identity = %+v", report.Identity)
 	}
 }
 

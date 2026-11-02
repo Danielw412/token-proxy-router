@@ -790,6 +790,12 @@ func TestBuildSnippets(t *testing.T) {
 	if !strings.Contains(snippets.Windows, "$env:TPR_INSTALL_ARGS='connect --hub https://h.example.com:8443 --key "+testKey+"'") || !strings.Contains(snippets.Windows, "| iex") {
 		t.Errorf("windows = %s", snippets.Windows)
 	}
+	if !strings.Contains(snippets.CodexEnv, codexEnvKey+"="+testKey) || !strings.Contains(snippets.CodexEnvWindows, "setx "+codexEnvKey+" "+testKey) {
+		t.Errorf("codex key steps = %q %q", snippets.CodexEnv, snippets.CodexEnvWindows)
+	}
+	if snippets.CodexRun != "codex --profile tpr" {
+		t.Errorf("codex run = %q", snippets.CodexRun)
+	}
 	if !strings.Contains(snippets.CodexTOML, `base_url = "https://h.example.com:8443/v1"`) {
 		t.Errorf("toml = %s", snippets.CodexTOML)
 	}

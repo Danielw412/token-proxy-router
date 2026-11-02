@@ -39,6 +39,9 @@ type Snippets struct {
 	Linux            string `json:"linux"`
 	Windows          string `json:"windows"`
 	CodexTOML        string `json:"codex_toml"`
+	CodexEnv         string `json:"codex_env"`
+	CodexEnvWindows  string `json:"codex_env_windows"`
+	CodexRun         string `json:"codex_run"`
 	ClaudeEnv        string `json:"claude_env"`
 	ClaudeEnvWindows string `json:"claude_env_windows"`
 	T3               string `json:"t3"`
@@ -73,6 +76,9 @@ func BuildSnippets(hub, key string) (Snippets, error) {
 		Linux:            installLinux + " -s -- " + args,
 		Windows:          "$env:TPR_INSTALL_ARGS='" + args + "'; " + installWindows,
 		CodexTOML:        CodexTOML(hub),
+		CodexEnv:         fmt.Sprintf("export %s=%s\n", codexEnvKey, key),
+		CodexEnvWindows:  fmt.Sprintf("setx %s %s\n", codexEnvKey, key),
+		CodexRun:         "codex --profile tpr",
 		ClaudeEnv:        fmt.Sprintf("export %s=%s\nexport %s=%s\n", claudeBaseURL, hub, claudeToken, key),
 		ClaudeEnvWindows: fmt.Sprintf("$env:%s='%s'\n$env:%s='%s'\n", claudeBaseURL, hub, claudeToken, key),
 		T3:               "tpr connect --hub " + hub + " --key " + key + " --t3",

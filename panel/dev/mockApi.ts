@@ -153,20 +153,37 @@ const handleTpr = async (
   const pool = () => (state.router[provider] ??= {});
 
   if (path === '/quota/pools') {
-    send(
-      res,
-      200,
-      quotaPools(
-        now,
-        {
-          from: Date.parse(url.searchParams.get('from') ?? '') || now - 3 * DAY,
-          to: Date.parse(url.searchParams.get('to') ?? '') || now + 11 * DAY,
-          burn: url.searchParams.get('burn') ?? '3h',
-          future: url.searchParams.get('future') ?? 'same',
-        },
-        zero
-      )
+    const body = quotaPools(
+      now,
+      {
+        from: Date.parse(url.searchParams.get('from') ?? '') || now - 3 * DAY,
+        to: Date.parse(url.searchParams.get('to') ?? '') || now + 11 * DAY,
+        burn: url.searchParams.get('burn') ?? '3h',
+        future: url.searchParams.get('future') ?? 'same',
+      },
+      zero
     );
+    // A rough stand-in for the server's filter: scale each pool to its chosen accounts.
+    const chosen = url.searchParams.get('accounts')?.split(',') ?? [];
+    if (chosen.length) {
+      const scaled = (points: Array<{ at: string; percent: number | null }>, share: number) =>
+        points.map((point) => ({ ...point, percent: point.percent === null ? null : point.percent * share }));
+      body.pools = body.pools
+        .map((pool) => {
+          const accounts = pool.accounts.filter((account) => chosen.includes(account.id));
+          const share = accounts.length / pool.accounts.length;
+          return {
+            ...pool,
+            accounts,
+            capacity_percent: pool.capacity_percent * share,
+            remaining_percent: pool.remaining_percent * share,
+            recorded: scaled(pool.recorded, share),
+            projected: scaled(pool.projected, share),
+          };
+        })
+        .filter((pool) => pool.accounts.length > 0);
+    }
+    send(res, 200, body);
     return true;
   }
   const history = path.match(/^\/quota\/accounts\/([^/]+)\/history$/);

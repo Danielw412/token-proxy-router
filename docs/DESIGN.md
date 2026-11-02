@@ -177,10 +177,11 @@ and reported in `warnings`, and an unknown key answers 400.
 
 ### Quota history and forecast
 
-`GET /quota/pools?from=&to=&burn=3h&window=weekly&future=same`
+`GET /quota/pools?from=&to=&burn=3h&window=weekly&future=same&accounts=id1,id2`
 
 - `burn`: `1h`, `3h`, `6h`. `window`: `weekly`, `session`.
 - `future`: `same` (current burn), `idle` (no usage), `double` (twice the burn).
+- `accounts`: forecast only these accounts. Pools with none of them are left out.
 
 ```json
 {
@@ -263,7 +264,7 @@ flow for `reauth.provider`. `reauth` is `null` for an API-key credential. Times 
 `GET /usage/keys?from=&to=&bucket=hour|day` returns:
 
 ```json
-{"keys":[{"key_id":"","name":"","masked":"sk-...abcd","requests":0,"failures":0,"input_tokens":0,"output_tokens":0,"cached_tokens":0,"last_used_at":"","models":[{"model":"","requests":0,"total_tokens":0}],"series":[{"at":"","requests":0,"total_tokens":0}]}]}
+{"keys":[{"key_id":"","name":"","masked":"sk-...abcd","requests":0,"failures":0,"input_tokens":0,"output_tokens":0,"cached_tokens":0,"total_tokens":0,"last_used_at":"","models":[{"model":"","requests":0,"total_tokens":0}],"series":[{"at":"","requests":0,"total_tokens":0}]}]}
 ```
 
 `key_id` is a hash prefix, never the key, and the same `key_id` as `GET /connect`.
@@ -337,7 +338,7 @@ the login page whether identity sign-in applies to this request:
 
 `POST /connect/snippets` `{"key_id":"","hub_url":""}` returns the commands and config
 for that key, including the real key, because the owner asked for them:
-`{"linux":"...","windows":"...","codex_toml":"...","claude_env":"...","claude_env_windows":"...","t3":"..."}`.
+`{"linux":"...","windows":"...","codex_toml":"...","codex_env":"...","codex_env_windows":"...","codex_run":"...","claude_env":"...","claude_env_windows":"...","t3":"..."}`.
 Management-key auth is required and the response is `Cache-Control: no-store`.
 
 ## T3 Code integration

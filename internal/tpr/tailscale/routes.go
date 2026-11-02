@@ -99,7 +99,9 @@ func (c *Client) BuildReport(ctx context.Context, info setup.ServerInfo, state S
 		Enabled:       state.Identity.Enabled,
 		AllowedLogins: append([]string{}, state.Identity.AllowedLogins...),
 		Available:     identitySupported && status.LoggedIn && status.DNSName != "" && setup.IsLoopbackHost(info.Host),
-		Reason:        identityUnsupportedReason,
+	}
+	if !identitySupported {
+		report.Identity.Reason = identityUnsupportedReason
 	}
 	if !status.LoggedIn {
 		return report

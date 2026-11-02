@@ -66,6 +66,10 @@ func TestAggregatesPerKeyWithModelsAndSeries(t *testing.T) {
 	if one.Requests != 4 || one.Failures != 1 || one.InputTokens != 112 || one.OutputTokens != 57 || one.CachedTokens != 2 {
 		t.Fatalf("totals = %+v", one)
 	}
+	// The total is the provider's, not input + output + cached.
+	if one.TotalTokens == 0 || one.TotalTokens == one.InputTokens+one.OutputTokens+one.CachedTokens {
+		t.Fatalf("total = %+v", one)
+	}
 	if len(one.Models) != 2 || one.Models[0].Model != "b" || one.Models[0].Requests != 3 || one.Models[1].TotalTokens != 15 {
 		t.Fatalf("models = %+v", one.Models)
 	}

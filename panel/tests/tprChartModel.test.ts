@@ -1,9 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import type { QuotaPool } from '@/services/api/tpr';
 import {
   DAY_MS,
   HOUR_MS,
-  aggregateAccounts,
+  clipToRange,
   areaPath,
   createScales,
   dayTicks,
@@ -245,64 +244,68 @@ describe('drain rate', () => {
   });
 });
 
-describe('filtering a pool to chosen accounts', () => {
-  const now = FROM + 2 * DAY_MS;
-  const pool: QuotaPool = {
-    provider: 'codex',
-    accounts: [
-      { id: 'a', label: 'A', email: '', plan: '', weight: 1, remainingPercent: 50, resetAt: new Date(now + DAY_MS).toISOString(), status: 'ok' },
-      { id: 'b', label: 'B', email: '', plan: '', weight: 2.5, remainingPercent: 80, resetAt: null, status: 'ok' },
-    ],
-    remainingPercent: 250,
-    capacityPercent: 350,
-    weightNote: '',
-    poolEmptyAt: null,
-    firstEmpty: null,
-    nextReset: null,
-    burnPerHour: 1,
-    recorded: [],
-    projected: [],
-    resets: [],
-    emptyMarks: [],
-    coverage: { firstSampleAt: null, samples: 0 },
-  };
-  const at = (offsetHours: number) => new Date(now - offsetHours * HOUR_MS).toISOString();
-  const histories = {
-    a: [
-      { at: at(3), percent: 56 },
-      { at: at(0), percent: 50 },
-    ],
-    b: [{ at: at(3), percent: 80 }],
-  };
-  const build = (selected: string[], futureMultiplier = 1) =>
-    aggregateAccounts({
-      pool,
-      selected: new Set(selected),
-      histories,
-      now,
-      to: now + 10 * DAY_MS,
-      burnHours: 3,
-      futureMultiplier,
-    });
-
-  test('recomputes weighted figures for the subset', () => {
-    const filtered = build(['b']);
-    expect(filtered.capacityPercent).toBe(250);
-    expect(filtered.remainingPercent).toBe(200);
-    expect(filtered.accounts.map((account) => account.id)).toEqual(['b']);
+describe('clipping a line to the visible range', () => {
+  test('a flat forecast spanning the whole range still has both ends', () => {
+    expect(
+      clipToRange(
+        [
+          { at: 0, value: 50 },
+          { at: 100, value: 50 },
+        ],
+        10,
+        60
+      )
+    ).toEqual([
+      { at: 10, value: 50 },
+      { at: 60, value: 50 },
+    ]);
   });
 
-  test('derives burn from the subset and forecasts its resets', () => {
-    const filtered = build(['a']);
-    expect(filtered.burnPerHour).toBeCloseTo(2, 5);
-    expect(filtered.nextReset?.deltaPercent).toBeGreaterThan(0);
-    expect(filtered.poolEmptyAt).not.toBeNull();
-    expect(filtered.emptyMarks).toHaveLength(filtered.emptyMarks.length);
+  test('interpolates where a falling line crosses each edge', () => {
+    expect(
+      clipToRange(
+        [
+          { at: 0, value: 100 },
+          { at: 100, value: 0 },
+        ],
+        25,
+        75
+      )
+    ).toEqual([
+      { at: 25, value: 75 },
+      { at: 75, value: 25 },
+    ]);
   });
 
-  test('no usage ahead means the pool never empties', () => {
-    const filtered = build(['a'], 0);
-    expect(filtered.poolEmptyAt).toBeNull();
-    expect(filtered.firstEmpty).toBeNull();
+  test('keeps points inside and adds no edge at an exact boundary', () => {
+    const points = [
+      { at: 10, value: 5 },
+      { at: 20, value: 4 },
+      { at: 30, value: 3 },
+    ];
+    expect(clipToRange(points, 10, 30)).toEqual(points);
+  });
+
+  test('does not invent a value across a hole or for a line outside the range', () => {
+    expect(
+      clipToRange(
+        [
+          { at: 0, value: null },
+          { at: 100, value: 50 },
+        ],
+        10,
+        60
+      )
+    ).toEqual([]);
+    expect(
+      clipToRange(
+        [
+          { at: 0, value: 1 },
+          { at: 5, value: 2 },
+        ],
+        10,
+        60
+      )
+    ).toEqual([]);
   });
 });
