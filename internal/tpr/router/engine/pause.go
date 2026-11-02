@@ -33,13 +33,13 @@ var (
 type Pause struct {
 	Since time.Time `json:"since"`
 	// Until ends the pause on its own; zero means until resumed by hand.
-	Until time.Time `json:"until,omitempty"`
+	Until time.Time `json:"until,omitzero"`
 	// AutoResumeMinutes > 0 lets each waiting request go every that many
 	// minutes (one step per conversation), then holds the next one again.
 	AutoResumeMinutes int `json:"auto_resume_minutes,omitempty"`
 	// AutoResumeFrom anchors the auto-resume cycle: the pause start, or when
 	// the interval last changed.
-	AutoResumeFrom time.Time `json:"auto_resume_from,omitempty"`
+	AutoResumeFrom time.Time `json:"auto_resume_from,omitzero"`
 }
 
 // Gate is what a request about to be routed checks before it may go.
@@ -206,9 +206,9 @@ func (e *Engine) SetSlowDown(seconds int) error {
 // PauseView describes a pause in progress for the panel.
 type PauseView struct {
 	Since             time.Time `json:"since"`
-	Until             time.Time `json:"until,omitempty"`
+	Until             time.Time `json:"until,omitzero"`
 	AutoResumeMinutes int       `json:"auto_resume_minutes,omitempty"`
-	NextAutoResume    time.Time `json:"next_auto_resume,omitempty"`
+	NextAutoResume    time.Time `json:"next_auto_resume,omitzero"`
 }
 
 func (e *Engine) pauseView(now time.Time) *PauseView {

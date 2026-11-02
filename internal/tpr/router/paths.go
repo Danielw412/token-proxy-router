@@ -19,6 +19,12 @@ var Providers = []string{engine.ProviderClaude, engine.ProviderCodex}
 // data folder, not config.yaml, so upstream config handling stays untouched.
 func routerDir() string { return filepath.Join(home.DataDir(), "router") }
 
+// StatePath returns the file holding a pool's saved state.
+func StatePath(provider string) string { return engineStatePath(provider) }
+
+// SettingsPath returns the file holding a pool's saved settings.
+func SettingsPath(provider string) string { return settingsPath(provider) }
+
 func engineStatePath(provider string) string {
 	return filepath.Join(routerDir(), provider+".state.json")
 }

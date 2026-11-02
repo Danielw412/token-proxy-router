@@ -12,7 +12,7 @@ import (
 type Window struct {
 	UsedPercent   float64   `json:"used_percent"`
 	WindowMinutes int       `json:"window_minutes"`
-	ResetAt       time.Time `json:"reset_at,omitempty"`
+	ResetAt       time.Time `json:"reset_at,omitzero"`
 	ObservedAt    time.Time `json:"observed_at"`
 	// NotStarted marks a reading that says outright no window is running. Claude
 	// reports a null reset for that; Codex reports a sliding one instead.

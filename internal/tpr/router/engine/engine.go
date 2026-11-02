@@ -116,10 +116,10 @@ type Account struct {
 	Email           string    `json:"email,omitempty"`
 	Plan            string    `json:"plan,omitempty"`
 	Quota           *Quota    `json:"quota,omitempty"`
-	BlockedUntil    time.Time `json:"blocked_until,omitempty"`
+	BlockedUntil    time.Time `json:"blocked_until,omitzero"`
 	BlockReason     string    `json:"block_reason,omitempty"`
 	Down            bool      `json:"down,omitempty"` // last logged health transition
-	LastPolled      time.Time `json:"last_polled,omitempty"`
+	LastPolled      time.Time `json:"last_polled,omitzero"`
 	PollError       string    `json:"poll_error,omitempty"`
 	authIndex       string
 	hostDisabled    bool
@@ -135,12 +135,12 @@ type Account struct {
 	forcePoll    bool
 	// ModelBlocks holds per-model usage limits (e.g. a model with its own
 	// quota) that must not take the whole account out of rotation.
-	ModelBlocks map[string]time.Time `json:"model_blocks,omitempty"`
+	ModelBlocks map[string]time.Time `json:"model_blocks,omitzero"`
 	// WindowUntil: the 5-hour window is known to be running until then
 	// (set by real traffic or by a window start).
-	WindowUntil time.Time `json:"window_until,omitempty"`
+	WindowUntil time.Time `json:"window_until,omitzero"`
 	// LastUsed is when the account last served a successful request.
-	LastUsed time.Time `json:"last_used,omitempty"`
+	LastUsed time.Time `json:"last_used,omitzero"`
 	// autoRetryAt holds off the next automatic window start after one was
 	// tried; autoFails counts failures in a row (both in memory only).
 	autoRetryAt time.Time
@@ -153,7 +153,7 @@ type Binding struct {
 	BoundAt     time.Time `json:"bound_at"`
 	LastSeen    time.Time `json:"last_seen"`
 	Requests    int64     `json:"requests"`
-	DetourSince time.Time `json:"detour_since,omitempty"`
+	DetourSince time.Time `json:"detour_since,omitzero"`
 	// Last is the account the session's most recent request went to. It
 	// differs from Account while a request detours or a websocket stays
 	// pinned elsewhere.
@@ -184,12 +184,12 @@ type State struct {
 	Active       string    `json:"active,omitempty"`
 	ActiveManual bool      `json:"active_manual,omitempty"`
 	ActiveReason string    `json:"active_reason,omitempty"`
-	ActiveSince  time.Time `json:"active_since,omitempty"`
+	ActiveSince  time.Time `json:"active_since,omitzero"`
 	// ProvisionalUntil marks an initial choice made before every account's
 	// quota was known; until then it may be re-ranked once clearly better
 	// data arrives. The deadline never extends.
-	ProvisionalUntil time.Time           `json:"provisional_until,omitempty"`
-	LastSwitch       time.Time           `json:"last_switch,omitempty"`
+	ProvisionalUntil time.Time           `json:"provisional_until,omitzero"`
+	LastSwitch       time.Time           `json:"last_switch,omitzero"`
 	History          []HistoryEntry      `json:"history"`
 	Families         map[string]*Binding `json:"families"`
 	Links            map[string]Link     `json:"links"`

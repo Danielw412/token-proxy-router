@@ -81,7 +81,7 @@ type StartResult struct {
 	ShortAfter      *float64  `json:"short_used_after,omitempty"`
 	LongBefore      *float64  `json:"long_used_before,omitempty"`
 	LongAfter       *float64  `json:"long_used_after,omitempty"`
-	ResetAt         time.Time `json:"reset_at,omitempty"`
+	ResetAt         time.Time `json:"reset_at,omitzero"`
 }
 
 var (

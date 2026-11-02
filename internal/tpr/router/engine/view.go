@@ -11,7 +11,7 @@ type WindowView struct {
 	RemainingPercent float64   `json:"remaining_percent"`
 	Estimated        bool      `json:"estimated,omitempty"`
 	WindowMinutes    int       `json:"window_minutes,omitempty"`
-	ResetAt          time.Time `json:"reset_at,omitempty"`
+	ResetAt          time.Time `json:"reset_at,omitzero"`
 }
 
 // AccountView is one account row in the UI. It deliberately contains no
@@ -30,10 +30,10 @@ type AccountView struct {
 	Pinned       bool        `json:"pinned"`
 	Short        *WindowView `json:"short,omitempty"`
 	Long         *WindowView `json:"long,omitempty"`
-	ObservedAt   time.Time   `json:"observed_at,omitempty"`
+	ObservedAt   time.Time   `json:"observed_at,omitzero"`
 	Source       string      `json:"source,omitempty"`
 	Stale        bool        `json:"stale,omitempty"`
-	BlockedUntil time.Time   `json:"blocked_until,omitempty"`
+	BlockedUntil time.Time   `json:"blocked_until,omitzero"`
 	PollError    string      `json:"poll_error,omitempty"`
 	Sessions     int         `json:"sessions"`
 	WarmSessions int         `json:"warm_sessions"`
@@ -41,14 +41,14 @@ type AccountView struct {
 	// IdleSessions are bound here with a warm cache but are not working now.
 	BusySessions int       `json:"busy_sessions"`
 	IdleSessions int       `json:"idle_sessions"`
-	LastUsed     time.Time `json:"last_used,omitempty"`
+	LastUsed     time.Time `json:"last_used,omitzero"`
 	// Window is the 5-hour window state: running, idle or unknown.
 	Window        string      `json:"window"`
-	WindowResetAt time.Time   `json:"window_reset_at,omitempty"`
+	WindowResetAt time.Time   `json:"window_reset_at,omitzero"`
 	Plans         []StartPlan `json:"plans"`
 	// AutoStartAt is when auto-start will start this account's next window
 	// (now or earlier: about to); zero when auto-start is off or skips it.
-	AutoStartAt time.Time `json:"auto_start_at,omitempty"`
+	AutoStartAt time.Time `json:"auto_start_at,omitzero"`
 }
 
 // StarterView describes the window-start feature.
@@ -69,7 +69,7 @@ type View struct {
 	Active       string           `json:"active,omitempty"`
 	ActiveManual bool             `json:"active_manual,omitempty"`
 	ActiveReason string           `json:"active_reason,omitempty"`
-	ActiveSince  time.Time        `json:"active_since,omitempty"`
+	ActiveSince  time.Time        `json:"active_since,omitzero"`
 	Routing      string           `json:"routing,omitempty"` // account new requests use right now
 	RoutingNote  string           `json:"routing_note,omitempty"`
 	Accounts     []AccountView    `json:"accounts"`
@@ -81,7 +81,7 @@ type View struct {
 	Starter      StarterView      `json:"starter"`
 	Picks        int64            `json:"picks"`
 	PickStats    map[string]int64 `json:"pick_stats"`
-	LastPoll     time.Time        `json:"last_poll,omitempty"`
+	LastPoll     time.Time        `json:"last_poll,omitzero"`
 	// Pause is set while new requests are held; SlowDownSeconds is the wait
 	// added before each request (0 = off).
 	Pause           *PauseView `json:"pause,omitempty"`
