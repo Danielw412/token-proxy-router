@@ -492,6 +492,8 @@ func (u *Updater) Apply(ctx context.Context, opts ApplyOptions) (Result, error) 
 		return fail(fmt.Errorf("install the new version: %w", err))
 	}
 	if !service.SupervisorRunning() {
+		// A marker from an interrupted update must not trigger a later rollback.
+		clearPending()
 		saveProgress(Progress{State: StateIdle, From: u.Current, To: plan.Tag, Message: "installed"})
 		return result, nil
 	}
