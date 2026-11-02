@@ -46,6 +46,7 @@ has to differ, update this file in the same commit.
 | `internal/tpr/home` | Data folder paths. |
 | `internal/tpr/routes.go` | `tpr.AddRoutes`: mounts feature routes at `/v8/management/tpr`. |
 | `internal/tpr/router` | Native port of custom-quota-router, multi-provider. |
+| `internal/tpr/backend` | Starts the router and the features below once the auth manager exists. |
 | `internal/tpr/store` | bbolt database at `data/tpr.db`. Exposes `Backup(io.Writer)`. |
 | `internal/tpr/quota` | Provider quota fetchers, history collector, forecast. |
 | `internal/tpr/alerts` | Quota alerts and notification delivery. |
@@ -74,6 +75,12 @@ has to differ, update this file in the same commit.
   provider has an engine, so other providers use upstream selection untouched.
 - **Storage is bbolt.** Pure Go, crash safe, single file, works on Windows.
   History retention: full detail for 30 days, hourly to 180 days, then dropped.
+  A second process gets a clear error rather than a hang. Router state and settings
+  are JSON files in `data/router/`, so routing runs even if the database cannot open.
+- **Only this server's own calls have timeouts.** Upstream model traffic gets none
+  (`AGENTS.md`). A window start bounds how long it waits, not the request. Read-only
+  quota polls and alert deliveries carry no model traffic and are bounded, so one
+  hung endpoint cannot stop a pool's maintenance.
 - **Static builds.** Releases use `CGO_ENABLED=0`. Upstream's dynamic plugin host
   stays compiled where it works without cgo (Windows) but no feature relies on it.
 - **Panel embedding.** `internal/tpr/webui/dist/` is git-ignored except `.gitkeep`.
@@ -135,7 +142,27 @@ panel blurs them.
 | `POST /router/resume?provider=` | | Resume |
 | `POST /router/slowdown?provider=` | `{"seconds":30}` | Delay each request |
 
-`provider` may be omitted on `state` to get `{"pools":[...]}` for every pool.
+`provider` may be omitted on `state` to get `{"pools":[...]}` for every pool. Every
+other route needs it, and answers 400 without a valid one. The router's mutating
+routes answer with the pool's state.
+
+`GET /router/state` also carries `enabled`, `now`, `pinned`, `active_manual`,
+`active_since`, `routing` and `routing_note` (the account a new session uses right
+now, and why), `session_count`, `warm_sessions`, `warnings`, `starter`
+(`{model, effort, plans, log, last_cost}`), `picks`, `pick_stats` and `last_poll`. In
+it:
+
+- `accounts[]`: `{id, label, email, plan, role, order, state, detail, active, pinned, disabled, short, long, observed_at, source, stale, blocked_until, poll_error, sessions, warm_sessions, busy_sessions, idle_sessions, last_used, window, window_reset_at, plans, auto_start_at}`. `state` is `ok|low|exhausted|unavailable|unknown|off`. `short` and `long` are `{remaining_percent, estimated, window_minutes, reset_at}`.
+- `sessions[]`: `{id, account, label, last, bound_at, last_seen, requests, state}`, newest first, at most 200. `state` is `busy|warm|cold`.
+- `windows[]`: `{account, label, state, reset_at, auto_start_at, plans}`. `state` is `running|idle|unknown`.
+- `pause`: `null`, or `{since, until, auto_resume_minutes, next_auto_resume}`.
+- `slowdown`: `{seconds}`.
+- `history[]`: `{at, kind, from, to, reason, count}`, newest first.
+- A time that is not set is left out, not sent as a zero value.
+
+`GET` and `PATCH /router/settings` return `{provider, settings, warnings}`. `PATCH`
+takes any settings keys (`docs/routing.md` lists them); out-of-range values are clamped
+and reported in `warnings`, and an unknown key answers 400.
 
 ### Quota history and forecast
 
@@ -174,14 +201,39 @@ Percent values are pool-weighted: each account contributes `remaining * weight`
 and `capacity = sum(100 * weight)`, so the numbers match the reference design
 (`555% of 600%`). `recorded` is real samples only; `projected` starts at `now`.
 
-`GET /quota/accounts/:id/history?from=&to=&window=` returns one account's samples.
-`POST /quota/refresh` polls every account now (rate limited by the server).
+- `from` and `to` default to a week either side of `now`, and can span at most 366 days.
+- Weight is the account's plan size against the pool's smallest plan, so a pool of one
+  plan is `100%` per account. `weight_note` names the weights that are not 1.
+- Accounts that are Off, disabled or have no data yet are listed but not counted in the
+  totals. Their `remaining_percent` is `null` if unknown. `status` is the router's
+  `state` above.
+- Accounts drain one at a time in routing order, as the router uses them: the current
+  one first, reserves last. A reset gives back quota at its known time and recurs each
+  period. Claude's weekly window keeps a fixed schedule; a Codex window and a 5-hour
+  window restart at the first use after a reset.
+- `projected` holds both sides of a reset at the same `at`, so it draws as a step.
+- `first_empty`, `next_reset` and `pool_empty_at` are `null` when none falls before `to`.
+- `resets[].projected` is `false` for a reset found in history.
+- `coverage.samples` counts samples inside `from` and `to`; `first_sample_at` is the
+  oldest kept at all. `recorded` is thinned to at most 1500 real sample times.
+
+`GET /quota/accounts/:id/history?from=&to=&window=` returns one account's samples:
+`{id, provider, window, samples:[{at, percent, reset_at, source}]}`. `percent` is
+remaining. `window` defaults to `weekly`, and `to` to `now`. An auth ID may contain a slash.
+
+`POST /quota/refresh` asks every account to poll now and answers 202
+`{"requested":true}`. Past once a minute it answers 429 with `Retry-After`. Results arrive
+through `GET /quota/pools` as the polls finish, at most 3 per pool every 15 seconds.
 
 ### Alerts
 
-- `GET /alerts` / `PUT /alerts`: `{"enabled":true,"pool_empty_within_hours":6,"account_below_percent":10,"notify_on_reset":false,"channels":[{"type":"ntfy|discord|slack|webhook","url":"...","name":"..."}]}`. Channel URLs are secrets: `GET` masks them.
+- `GET /alerts` / `PUT /alerts`: `{"enabled":true,"pool_empty_within_hours":6,"account_below_percent":10,"notify_on_reset":false,"channels":[{"type":"ntfy|discord|slack|webhook","url":"...","name":"..."}]}`. Channel URLs are secrets: `GET` masks them to `https://host/…`. A `PUT` that sends a masked URL back keeps the stored one. A threshold of 0 turns that alert off. Both also return `active`, the same list as below.
 - `POST /alerts/test`: sends a test to each channel, `{"results":[{"name":"","ok":true,"error":""}]}`.
-- `GET /alerts/events?limit=50`: `{"events":[{"at","kind","provider","account","message"}]}`. The panel also shows active alerts as a banner.
+- `GET /alerts/events?limit=50`: `{"events":[{"at","kind","provider","account","message"}],"active":[{"key","kind","provider","account","message","since"}]}`. `kind` is `pool_empty_soon|account_low|quota_reset|cleared|delivery_failed`. The panel shows `active` as a banner.
+
+One condition notifies once until it clears. `account_below_percent` watches the weekly
+window. Delivery is not retried; a failure goes to the events log. Email addresses are
+shortened in what is sent to a channel, and shown in full in the panel.
 
 ### Account health
 
@@ -192,7 +244,8 @@ and `capacity = sum(100 * weight)`, so the numbers match the reference design
 ```
 
 `last_error` is sanitized. The panel's Re-login button opens the existing OAuth
-flow for `reauth.provider`.
+flow for `reauth.provider`. `reauth` is `null` for an API-key credential. Times are
+`null` when unknown. Only Codex and Claude accounts are listed.
 
 ### Usage per client key
 
@@ -202,7 +255,11 @@ flow for `reauth.provider`.
 {"keys":[{"key_id":"","name":"","masked":"sk-...abcd","requests":0,"failures":0,"input_tokens":0,"output_tokens":0,"cached_tokens":0,"last_used_at":"","models":[{"model":"","requests":0,"total_tokens":0}],"series":[{"at":"","requests":0,"total_tokens":0}]}]}
 ```
 
-`key_id` is a hash prefix, never the key.
+`key_id` is a hash prefix, never the key, and the same `key_id` as `GET /connect`.
+`from` defaults to a week ago and `to` to now. `bucket` defaults to `hour`, and `day` is a
+calendar day in the server's time zone. Every configured key is listed, used or not, named
+`Key N` by position; a key removed from the config keeps its history as `Removed key`, with
+an empty `masked`. Names the panel keeps in the browser apply on top of these.
 
 ### System, update, setup
 

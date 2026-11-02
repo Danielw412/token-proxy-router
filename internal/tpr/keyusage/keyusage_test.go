@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/connect"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/store"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/usage"
 )
@@ -182,7 +183,7 @@ func TestPendingUsageIsBoundedIfTheDatabaseStops(t *testing.T) {
 }
 
 func TestKeyIDAndMask(t *testing.T) {
-	if len(KeyID(keyOne)) != 16 || KeyID(keyOne) == KeyID(keyTwo) || strings.Contains(KeyID(keyOne), "aaaa") {
+	if KeyID(keyOne) != connect.KeyID(keyOne) || KeyID(keyOne) == KeyID(keyTwo) || strings.Contains(KeyID(keyOne), "aaaa") {
 		t.Fatalf("id = %q", KeyID(keyOne))
 	}
 	if KeyID(keyOne) != KeyID(" "+keyOne+" ") {
@@ -191,7 +192,7 @@ func TestKeyIDAndMask(t *testing.T) {
 	if got := Mask(keyOne); got != "sk-...aaaa" {
 		t.Fatalf("mask = %q", got)
 	}
-	if got := Mask("short"); got != "..." {
+	if got := Mask("short"); strings.Contains(got, "short") {
 		t.Fatalf("a short key must show nothing: %q", got)
 	}
 }

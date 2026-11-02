@@ -4,8 +4,6 @@ package keyusage
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"sort"
@@ -17,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/connect"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/store"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/usage"
 	log "github.com/sirupsen/logrus"
@@ -37,21 +36,13 @@ func init() {
 	})
 }
 
-// KeyID is the stable public identifier of a client key: a hash prefix, from which
-// the key cannot be recovered. Everything that names a key in the API uses this.
-func KeyID(key string) string {
-	sum := sha256.Sum256([]byte(strings.TrimSpace(key)))
-	return hex.EncodeToString(sum[:8])
-}
+// KeyID and Mask come from the connect feature, so one key has one identity across
+// the API: the panel joins GET /connect with GET /usage/keys on key_id. A key ID is
+// a hash prefix, from which the key cannot be recovered.
+func KeyID(key string) string { return connect.KeyID(strings.TrimSpace(key)) }
 
 // Mask shows just enough of a key to recognise it: sk-...abcd.
-func Mask(key string) string {
-	key = strings.TrimSpace(key)
-	if len(key) <= 8 {
-		return "..."
-	}
-	return key[:3] + "..." + key[len(key)-4:]
-}
+func Mask(key string) string { return connect.MaskKey(strings.TrimSpace(key)) }
 
 // Service implements usage.Plugin.
 type Service struct {
