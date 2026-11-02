@@ -77,6 +77,8 @@ type IdentityReport struct {
 	Enabled       bool     `json:"enabled"`
 	AllowedLogins []string `json:"allowed_logins"`
 	Available     bool     `json:"available"`
+	// Reason says why identity sign-in is unavailable on this OS.
+	Reason string `json:"reason,omitempty"`
 }
 
 // BuildReport gathers the state shown by `tpr status` and the panel.
@@ -96,7 +98,8 @@ func (c *Client) BuildReport(ctx context.Context, info setup.ServerInfo, state S
 	report.Identity = IdentityReport{
 		Enabled:       state.Identity.Enabled,
 		AllowedLogins: append([]string{}, state.Identity.AllowedLogins...),
-		Available:     status.LoggedIn && status.DNSName != "" && setup.IsLoopbackHost(info.Host),
+		Available:     identitySupported && status.LoggedIn && status.DNSName != "" && setup.IsLoopbackHost(info.Host),
+		Reason:        identityUnsupportedReason,
 	}
 	if !status.LoggedIn {
 		return report
@@ -233,6 +236,10 @@ func handleIdentity(c *gin.Context) {
 		return
 	}
 	if body.Enabled {
+		if !identitySupported {
+			c.JSON(http.StatusBadRequest, gin.H{"error": identityUnsupportedReason})
+			return
+		}
 		if len(logins) == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "add at least one allowed login before turning identity sign-in on"})
 			return

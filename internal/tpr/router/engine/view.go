@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 )
@@ -330,4 +331,25 @@ func (e *Engine) SessionViews() []SessionView {
 		out = out[:maxSessionViews]
 	}
 	return out
+}
+
+// DrainOrder lists the accounts the router would use, in order: the current one,
+// then the rest as ranked for the next switch. Forecasts use it so they spend quota
+// the way routing will.
+func (e *Engine) DrainOrder() []string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	now := e.now()
+	ids := make([]string, 0, len(e.st.Accounts))
+	for id, a := range e.st.Accounts {
+		if !a.EverInRoster || a.inRoster {
+			ids = append(ids, id)
+		}
+	}
+	sort.Strings(ids)
+	active := e.st.Active
+	if active == "" || !slices.Contains(ids, active) || !e.usableAuto(active, now) {
+		return e.rank(ids, now, "")
+	}
+	return append([]string{active}, e.rank(ids, now, active)...)
 }

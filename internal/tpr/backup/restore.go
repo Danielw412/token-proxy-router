@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -93,38 +94,28 @@ func ApplyPending(configPath string) (bool, error) {
 	if err := json.Unmarshal(raw, &manifest); err != nil {
 		return false, err
 	}
+	if manifest.Format != formatVersion {
+		return false, fmt.Errorf("the staged restore has format %d, and this version reads %d", manifest.Format, formatVersion)
+	}
 	stagedConfig := filepath.Join(staging, configEntry)
-	authTarget := home.AuthDir()
 	hasConfig := false
 	if rawConfig, errConfig := os.ReadFile(stagedConfig); errConfig == nil {
 		hasConfig = true
-		rewritten, errRewrite := rewriteAuthDir(rawConfig, manifest)
+		rewritten, errRewrite := rewriteAuthDir(rawConfig)
 		if errRewrite != nil {
 			return false, errRewrite
-		}
-		if parsed, errParse := config.ParseConfigBytes(rewritten); errParse == nil && parsed.AuthDir != "" {
-			authTarget = expandHome(parsed.AuthDir)
 		}
 		if err := setup.AtomicWrite(stagedConfig, rewritten, 0o600); err != nil {
 			return false, err
 		}
 	}
-	if err := replaceTree(filepath.Join(staging, "auth"), authTarget); err != nil {
+	// Restored files always go into this data folder. An archive's config must never
+	// choose where files get written or deleted.
+	if err := replaceTree(filepath.Join(staging, "auth"), home.AuthDir(), nil); err != nil {
 		return false, fmt.Errorf("restore auth files: %w", err)
 	}
-	// Everything except auth and config goes to the same relative path.
-	entries, err := os.ReadDir(staging)
-	if err != nil {
-		return false, err
-	}
-	for _, entry := range entries {
-		switch entry.Name() {
-		case manifestName, configEntry, "auth":
-			continue
-		}
-		if err := copyTreeOver(filepath.Join(staging, entry.Name()), filepath.Join(home.Dir(), entry.Name())); err != nil {
-			return false, fmt.Errorf("restore %s: %w", entry.Name(), err)
-		}
+	if err := replaceTree(filepath.Join(staging, "data"), home.DataDir(), isEphemeralData); err != nil {
+		return false, fmt.Errorf("restore data: %w", err)
 	}
 	if hasConfig {
 		if err := copyFile(stagedConfig, configPath); err != nil {
@@ -139,22 +130,15 @@ func ApplyPending(configPath string) (bool, error) {
 	return true, nil
 }
 
-// rewriteAuthDir moves an auth-dir that lived inside the old data folder to this
-// machine's data folder, so a backup restores cleanly on another machine or OS.
-func rewriteAuthDir(raw []byte, manifest Manifest) ([]byte, error) {
-	if manifest.AuthDir == "" || manifest.DataDir == "" {
-		return raw, nil
-	}
-	oldAuth := strings.ReplaceAll(manifest.AuthDir, `\`, "/")
-	oldData := strings.ReplaceAll(manifest.DataDir, `\`, "/")
-	if !strings.HasPrefix(oldAuth, strings.TrimRight(oldData, "/")+"/") || manifest.AuthDir == home.AuthDir() {
-		return raw, nil
-	}
+// rewriteAuthDir points the config at this data folder's auth files, wherever they
+// lived when the backup was made, so a backup restores cleanly on another machine or
+// OS and never reaches outside the data folder.
+func rewriteAuthDir(raw []byte) ([]byte, error) {
 	parsed, err := config.ParseConfigBytes(raw)
 	if err != nil {
 		return nil, err
 	}
-	if parsed.AuthDir != manifest.AuthDir {
+	if parsed.AuthDir != "" && filepath.Clean(expandHome(parsed.AuthDir)) == filepath.Clean(home.AuthDir()) {
 		return raw, nil
 	}
 	tmp, err := os.CreateTemp(home.Dir(), ".restore-config-*")
@@ -173,17 +157,25 @@ func rewriteAuthDir(raw []byte, manifest Manifest) ([]byte, error) {
 	return os.ReadFile(tmpName)
 }
 
-// replaceTree makes target match source. The old contents were saved by the
-// pre-restore snapshot.
-func replaceTree(source, target string) error {
-	if _, err := os.Stat(source); errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
+// isEphemeralData reports whether a path inside data/ describes this machine's
+// running process, and so stays out of a restore in both directions.
+func isEphemeralData(relative string) bool {
+	return ephemeralData[strings.ToLower(path.Join("data", filepath.ToSlash(relative)))]
+}
+
+// replaceTree makes target match source, so a file that was not in the backup does
+// not survive the restore. A backup with no such folder means it was empty. The old
+// contents were saved by the pre-restore snapshot. Files for which preserve returns
+// true are left alone.
+func replaceTree(source, target string, preserve func(relative string) bool) error {
 	if err := os.MkdirAll(target, 0o700); err != nil {
 		return err
 	}
 	keep := map[string]bool{}
 	err := filepath.WalkDir(source, func(current string, entry fs.DirEntry, walkErr error) error {
+		if errors.Is(walkErr, os.ErrNotExist) && current == source {
+			return nil
+		}
 		if walkErr != nil || entry.IsDir() {
 			return walkErr
 		}
@@ -208,13 +200,16 @@ func replaceTree(source, target string) error {
 		if entry.IsDir() && relative == "logs" {
 			return filepath.SkipDir
 		}
-		if entry.IsDir() || keep[relative] {
+		if entry.IsDir() || keep[relative] || (preserve != nil && preserve(relative)) {
 			return nil
 		}
 		return os.Remove(current)
 	})
 	if err != nil {
 		return err
+	}
+	if _, errStat := os.Stat(source); errors.Is(errStat, os.ErrNotExist) {
+		return nil
 	}
 	return copyTreeOver(source, target)
 }

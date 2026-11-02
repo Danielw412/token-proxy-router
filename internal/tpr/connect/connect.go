@@ -216,6 +216,10 @@ type JournalEntry struct {
 	Mode        uint32   `json:"mode,omitempty"`
 	AfterSHA    string   `json:"after_sha,omitempty"`
 	CreatedDirs []string `json:"created_dirs,omitempty"`
+	// PriorValue and PriorType hold a user environment variable that connect
+	// replaced. The journal is owner-only, like the other backups beside it.
+	PriorValue string `json:"prior_value,omitempty"`
+	PriorType  string `json:"prior_type,omitempty"`
 }
 
 func connectDir() string  { return filepath.Join(home.Dir(), "connect") }
@@ -497,16 +501,80 @@ func (s *session) persistKeyWindows(env Env, key string) error {
 	if env.Run == nil {
 		return errors.New("no way to set the user environment")
 	}
+	// Journal first, so a crash after setx can't lose the value being replaced. The
+	// first connect's value is the one to go back to, whatever later reruns replace.
+	entry := s.find(codexEnvKey)
+	if entry == nil {
+		priorType, priorValue, existed := readUserEnv(env, codexEnvKey)
+		s.journal.Entries = append(s.journal.Entries, JournalEntry{
+			Kind: kindSetx, Path: codexEnvKey, Existed: existed, PriorType: priorType, PriorValue: priorValue,
+		})
+		entry = &s.journal.Entries[len(s.journal.Entries)-1]
+	}
+	entry.AfterSHA = sha([]byte(key))
+	if err := saveJournal(s.journal); err != nil {
+		return fmt.Errorf("save the undo journal: %w", err)
+	}
 	if _, stderr, err := env.Run(context.Background(), "setx", codexEnvKey, key); err != nil {
 		return fmt.Errorf("could not set %s: %s", codexEnvKey, firstLine(stderr, err))
 	}
-	if s.find(codexEnvKey) == nil {
-		s.journal.Entries = append(s.journal.Entries, JournalEntry{Kind: kindSetx, Path: codexEnvKey})
-		if err := saveJournal(s.journal); err != nil {
-			return fmt.Errorf("save the undo journal: %w", err)
-		}
-	}
 	fmt.Fprintln(s.out, "  changed: user environment variable "+codexEnvKey+" (open a new terminal to use it)")
+	return nil
+}
+
+// readUserEnv reads a variable from the user's saved environment, which is not the
+// same as this process's environment.
+func readUserEnv(env Env, name string) (valueType, value string, ok bool) {
+	stdout, _, err := env.Run(context.Background(), "reg", "query", `HKCU\Environment`, "/v", name)
+	if err != nil {
+		return "", "", false
+	}
+	return parseRegQuery(string(stdout), name)
+}
+
+// parseRegQuery reads `reg query` output: a line of name, type and value separated
+// by runs of spaces. The value may itself contain spaces.
+func parseRegQuery(output, name string) (valueType, value string, ok bool) {
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimRight(strings.TrimLeft(line, " \t"), "\r")
+		rest, found := strings.CutPrefix(line, name)
+		if !found || !strings.HasPrefix(rest, " ") {
+			continue
+		}
+		fields := strings.Fields(rest)
+		if len(fields) == 0 || !strings.HasPrefix(fields[0], "REG_") {
+			continue
+		}
+		valueType = fields[0]
+		_, after, _ := strings.Cut(rest, valueType)
+		return valueType, strings.TrimLeft(after, " \t"), true
+	}
+	return "", "", false
+}
+
+// undoUserEnv puts the variable back as it was, unless the user has changed it
+// since, in which case their value wins.
+func undoUserEnv(ctx context.Context, env Env, entry JournalEntry, out io.Writer) error {
+	_, current, exists := readUserEnv(env, codexEnvKey)
+	if !exists {
+		fmt.Fprintln(out, "  skipped: user environment variable "+codexEnvKey+" is already gone")
+		return nil
+	}
+	if entry.AfterSHA != "" && sha([]byte(current)) != entry.AfterSHA {
+		fmt.Fprintln(out, "  skipped: user environment variable "+codexEnvKey+" was changed after connect, so it was left as is")
+		return nil
+	}
+	if entry.Existed {
+		if _, stderr, err := env.Run(ctx, "reg", "add", `HKCU\Environment`, "/v", codexEnvKey, "/t", entry.PriorType, "/d", entry.PriorValue, "/f"); err != nil {
+			return fmt.Errorf("could not restore it: %s", firstLine(stderr, err))
+		}
+		fmt.Fprintln(out, "  restored: user environment variable "+codexEnvKey)
+		return nil
+	}
+	if _, stderr, err := env.Run(ctx, "reg", "delete", `HKCU\Environment`, "/v", codexEnvKey, "/f"); err != nil {
+		return fmt.Errorf("could not remove it: %s", firstLine(stderr, err))
+	}
+	fmt.Fprintln(out, "  removed: user environment variable "+codexEnvKey)
 	return nil
 }
 
@@ -583,11 +651,7 @@ func undoEntry(ctx context.Context, env Env, entry JournalEntry, out io.Writer) 
 		if env.Run == nil {
 			return errors.New("no way to change the user environment")
 		}
-		if _, stderr, err := env.Run(ctx, "reg", "delete", `HKCU\Environment`, "/v", codexEnvKey, "/f"); err != nil {
-			return fmt.Errorf("could not remove it: %s", firstLine(stderr, err))
-		}
-		fmt.Fprintln(out, "  removed: user environment variable "+codexEnvKey)
-		return nil
+		return undoUserEnv(ctx, env, entry, out)
 	}
 	current, err := os.ReadFile(entry.Path)
 	if errors.Is(err, os.ErrNotExist) {

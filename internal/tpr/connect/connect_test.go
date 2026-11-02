@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -28,6 +29,8 @@ type world struct {
 	hub     *httptest.Server
 	home    string
 	setxLog []string
+	// registry is the fake saved value of TPR_API_KEY; nil means it is not set.
+	registry map[string]string
 }
 
 func newWorld(t *testing.T) *world {
@@ -60,6 +63,20 @@ func newWorld(t *testing.T) *world {
 		LookPath: func(string) (string, error) { return "", errors.New("not on PATH") },
 		Run: func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
 			w.setxLog = append(w.setxLog, name+" "+strings.Join(args, " "))
+			// A small stand-in for the user's saved environment on Windows.
+			switch {
+			case name == "setx":
+				w.registry = map[string]string{"type": "REG_SZ", "value": args[1]}
+			case name == "reg" && args[0] == "query":
+				if w.registry == nil {
+					return nil, []byte("ERROR: not found"), errors.New("exit status 1")
+				}
+				return []byte("\r\nHKEY_CURRENT_USER\\Environment\r\n    TPR_API_KEY    " + w.registry["type"] + "    " + w.registry["value"] + "\r\n\r\n"), nil, nil
+			case name == "reg" && args[0] == "delete":
+				w.registry = nil
+			case name == "reg" && args[0] == "add":
+				w.registry = map[string]string{"type": args[5], "value": args[7]}
+			}
 			return nil, nil, nil
 		},
 	}
@@ -599,7 +616,7 @@ func TestWindowsUsesSetxAndUndoRemovesIt(t *testing.T) {
 	w.write(t, ".codex/config.toml", existingCodex)
 	before := snapshotTree(t, w.home)
 	output := w.connect(t, func(o *Options) { o.Codex = true })
-	if len(w.setxLog) != 1 || w.setxLog[0] != "setx TPR_API_KEY "+testKey {
+	if !slices.Contains(w.setxLog, "setx TPR_API_KEY "+testKey) {
 		t.Fatalf("calls = %v", w.setxLog)
 	}
 	if !strings.Contains(output, "new terminal") {
@@ -615,6 +632,63 @@ func TestWindowsUsesSetxAndUndoRemovesIt(t *testing.T) {
 		t.Fatalf("calls = %v", w.setxLog)
 	}
 	assertSameTree(t, before, snapshotTree(t, w.home))
+}
+
+func TestWindowsUndoRestoresAValueThatWasAlreadyThere(t *testing.T) {
+	w := newWorld(t)
+	w.env.GOOS = "windows"
+	w.write(t, ".codex/config.toml", existingCodex)
+	w.registry = map[string]string{"type": "REG_EXPAND_SZ", "value": "%USERPROFILE%\\my key"}
+	w.connect(t, func(o *Options) { o.Codex = true })
+	if w.registry["value"] != testKey {
+		t.Fatalf("not replaced: %v", w.registry)
+	}
+	// A rerun must not lose the value from before the first connect.
+	w.connect(t, func(o *Options) { o.Codex = true })
+	if err := Undo(context.Background(), w.env, nil); err != nil {
+		t.Fatal(err)
+	}
+	if w.registry["type"] != "REG_EXPAND_SZ" || w.registry["value"] != "%USERPROFILE%\\my key" {
+		t.Fatalf("not restored: %v", w.registry)
+	}
+}
+
+func TestWindowsUndoLeavesAValueTheUserChanged(t *testing.T) {
+	w := newWorld(t)
+	w.env.GOOS = "windows"
+	w.write(t, ".codex/config.toml", existingCodex)
+	w.connect(t, func(o *Options) { o.Codex = true })
+	w.registry = map[string]string{"type": "REG_SZ", "value": "their-own-key"}
+	var out bytes.Buffer
+	if err := Undo(context.Background(), w.env, &out); err != nil {
+		t.Fatal(err)
+	}
+	if w.registry == nil || w.registry["value"] != "their-own-key" {
+		t.Fatalf("the user's value was changed: %v", w.registry)
+	}
+	if !strings.Contains(out.String(), "left as is") {
+		t.Fatal(out.String())
+	}
+}
+
+func TestParseRegQuery(t *testing.T) {
+	for _, tc := range []struct {
+		name, output, valueType, value string
+		ok                             bool
+	}{
+		{"plain", "\r\nHKEY_CURRENT_USER\\Environment\r\n    TPR_API_KEY    REG_SZ    abc\r\n", "REG_SZ", "abc", true},
+		{"spaces in the value", "    TPR_API_KEY    REG_EXPAND_SZ    a b  c\r\n", "REG_EXPAND_SZ", "a b  c", true},
+		{"a value containing a type name", "    TPR_API_KEY    REG_SZ    REG_SZ x\r\n", "REG_SZ", "REG_SZ x", true},
+		{"another variable", "    TPR_API_KEY_OLD    REG_SZ    abc\r\n", "", "", false},
+		{"empty", "", "", "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			valueType, value, ok := parseRegQuery(tc.output, "TPR_API_KEY")
+			if ok != tc.ok || valueType != tc.valueType || value != tc.value {
+				t.Fatalf("got %q %q %v", valueType, value, ok)
+			}
+		})
+	}
 }
 
 func TestT3HomeOverride(t *testing.T) {

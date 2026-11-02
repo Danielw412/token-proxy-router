@@ -45,6 +45,15 @@ var ephemeralData = map[string]bool{
 	"data/update-state.json":   true,
 	"data/update-pending.json": true,
 	"data/update-check.json":   true,
+	"data/update.lock":         true,
+}
+
+// windowsDeviceNames can't be used as file names on Windows, with or without an
+// extension.
+var windowsDeviceNames = map[string]bool{
+	"con": true, "prn": true, "aux": true, "nul": true,
+	"com1": true, "com2": true, "com3": true, "com4": true, "com5": true, "com6": true, "com7": true, "com8": true, "com9": true,
+	"lpt1": true, "lpt2": true, "lpt3": true, "lpt4": true, "lpt5": true, "lpt6": true, "lpt7": true, "lpt8": true, "lpt9": true,
 }
 
 // Manifest describes an archive. It holds no secrets.
@@ -232,11 +241,13 @@ func safeEntryName(name string) bool {
 	if name == "" || strings.ContainsAny(name, "\\:\x00") || strings.HasPrefix(name, "/") {
 		return false
 	}
-	if path.Clean(name) != name || ephemeralData[name] {
+	// Windows and macOS folders ignore case, so every reserved name is compared
+	// without it: DATA/UPDATE-PENDING.JSON must not get past "data/update-pending.json".
+	if path.Clean(name) != name || ephemeralData[strings.ToLower(name)] {
 		return false
 	}
-	first := true
-	for _, part := range strings.Split(name, "/") {
+	parts := strings.Split(name, "/")
+	for _, part := range parts {
 		if part == "" || part == "." || part == ".." {
 			return false
 		}
@@ -244,18 +255,20 @@ func safeEntryName(name string) bool {
 		if strings.HasSuffix(part, ".") || strings.HasSuffix(part, " ") {
 			return false
 		}
-		if first {
-			first = false
-			switch part {
-			case "bin", "backups", "logs", "credentials.txt", "static":
-				return false
-			}
-			if strings.HasPrefix(part, ".restore") {
-				return false
-			}
+		stem, _, _ := strings.Cut(strings.ToLower(part), ".")
+		if windowsDeviceNames[stem] {
+			return false
 		}
 	}
-	return true
+	// An archive only ever holds these. Anything else, such as bin/ or a differently
+	// cased data/, has no business being restored.
+	switch parts[0] {
+	case "auth", "data":
+		return len(parts) > 1
+	case manifestName, configEntry:
+		return len(parts) == 1
+	}
+	return false
 }
 
 // Inspect is the result of validating an archive.

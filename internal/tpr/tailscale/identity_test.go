@@ -24,6 +24,8 @@ func newChecker(whois func(context.Context, string) (string, error)) *Checker {
 		Settings: func() Identity { return Identity{Enabled: true, AllowedLogins: []string{testLogin}} },
 		Whois:    whois,
 		DNSName:  func(context.Context) string { return testDNS },
+		// These requests are built by hand, so they have no real connection.
+		PeerTrusted: func(*http.Request) bool { return true },
 	}
 }
 

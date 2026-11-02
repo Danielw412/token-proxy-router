@@ -184,7 +184,7 @@ func BurnPerHour(now time.Time, window time.Duration, accounts []AccountInput) f
 				continue
 			}
 			if prev != nil {
-				used += dropBetween(*prev, *s) * weightOf(a)
+				used += dropInWindow(*prev, *s, start) * weightOf(a)
 				first := prev.At
 				if first.Before(start) {
 					first = start
@@ -204,6 +204,26 @@ func BurnPerHour(now time.Time, window time.Duration, accounts []AccountInput) f
 		span = minBurnSpan
 	}
 	return used / span.Hours()
+}
+
+// dropInWindow is the part of a drop that happened after start, assuming steady
+// use between the two readings. Without this, a long gap in polling would squeeze
+// hours of use into the burn window.
+func dropInWindow(prev, next SeriesPoint, start time.Time) float64 {
+	drop := dropBetween(prev, next)
+	from := prev.At
+	// After a reset, the later reading's use all happened after that reset.
+	if !prev.ResetAt.IsZero() && prev.ResetAt.After(from) && !next.At.Before(prev.ResetAt) {
+		from = prev.ResetAt
+	}
+	if !from.Before(start) {
+		return drop
+	}
+	total := next.At.Sub(from)
+	if total <= 0 {
+		return drop
+	}
+	return drop * next.At.Sub(start).Seconds() / total.Seconds()
 }
 
 func weightOf(a AccountInput) float64 {

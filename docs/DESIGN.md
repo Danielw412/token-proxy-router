@@ -35,7 +35,9 @@ has to differ, update this file in the same commit.
    no real emails, auth IDs, hostnames, tailnet names or IPs. Use
    `alice@example.com` and `<hub-url>` placeholders.
 9. **Respect provider limits.** Route only among credentials the host offers.
-   Never retry around a usage limit or disguise which account is used.
+   Never disguise which account is used. TPR adds no retries of its own. Upstream's
+   failover to another of your accounts after a 429 is kept: it stays within your
+   own accounts and each one's limits still apply.
 
 ## Repository layout
 
@@ -286,7 +288,11 @@ an empty `masked`. Names the panel keeps in the browser apply on top of these.
 **Identity sign-in** is off by default. When enabled, a management request is
 accepted without a key only if all hold: the TCP peer is loopback, the bind address
 is loopback, the `Tailscale-User-Login` header is in `allowed_logins`, and the local
-Tailscale API's `whois` for the forwarded client address returns the same login.
+Tailscale API's `whois` for the forwarded client address returns the same login, and
+the connection's owner is root (as `tailscaled` runs) or the user running TPR. That
+last check stops another local user from forging the headers, and it reads
+`/proc/net/tcp`, so identity sign-in is Linux only and reports `available: false`
+with a `reason` elsewhere.
 Any failed check falls through to the normal key check. It never grants anything
 on a non-management route.
 
@@ -308,7 +314,10 @@ the login page whether identity sign-in applies to this request:
   router state, history). scrypt plus AES-256-GCM. A passphrase of 12+ characters
   is required.
 - `POST /restore` multipart `file` + `passphrase`. Validates, snapshots the current
-  state to `backups/`, applies, then restarts.
+  state to `backups/`, applies, then restarts. Restored files only ever go into this
+  data folder, whatever the archive's config says, and its `auth-dir` is rewritten to
+  match. `auth/` and `data/` end up matching the backup exactly, apart from files
+  describing the running process.
 
 ### Connect
 

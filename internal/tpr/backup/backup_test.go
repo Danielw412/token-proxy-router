@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/home"
 )
@@ -134,7 +135,8 @@ func TestRoundTripRestoresEverythingAndSnapshotsFirst(t *testing.T) {
 	if applied, err := ApplyPending(home.ConfigPath()); err != nil || !applied {
 		t.Fatalf("applied=%v err=%v", applied, err)
 	}
-	if mustRead(t, home.ConfigPath()) != "port: 9999\n" {
+	// A config that named no auth folder now names this data folder's.
+	if !strings.Contains(mustRead(t, home.ConfigPath()), "port: 9999") {
 		t.Fatal("snapshot held the wrong config")
 	}
 }
@@ -374,6 +376,23 @@ func TestUnsafePathsAreRefused(t *testing.T) {
 		"data/x.",
 		"data/update-pending.json",
 		"data/supervisor.json",
+		"DATA/update-pending.json",
+		"data/UPDATE-PENDING.JSON",
+		"data/Update.Lock",
+		"BIN/tpr.previous.exe",
+		"Bin/tpr",
+		"AUTH/x.json",
+		"Config.Yaml",
+		"Manifest.json",
+		"config.yaml/x",
+		"manifest.json/x",
+		"auth",
+		"data",
+		"anything-else.txt",
+		"connect/journal.json",
+		"auth/CON",
+		"data/nul.txt",
+		"auth/com1.json",
 		"nul\x00byte",
 		"",
 	} {
@@ -485,12 +504,17 @@ func TestRestoreOnAnotherMachineMovesAuthDir(t *testing.T) {
 	if _, err := ApplyPending(home.ConfigPath()); err != nil {
 		t.Fatal(err)
 	}
-	config := mustRead(t, home.ConfigPath())
-	if strings.Contains(config, filepath.ToSlash(oldAuth)) {
-		t.Fatalf("old auth-dir kept: %s", config)
+	restored := mustRead(t, home.ConfigPath())
+	if strings.Contains(restored, filepath.ToSlash(oldAuth)) {
+		t.Fatalf("old auth-dir kept: %s", restored)
 	}
-	if !strings.Contains(config, filepath.ToSlash(home.AuthDir())) && !strings.Contains(config, home.AuthDir()) {
-		t.Fatalf("auth-dir not moved: %s", config)
+	// Parse it, because YAML escapes the backslashes in a Windows path.
+	parsed, err := config.ParseConfigBytes([]byte(restored))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Clean(parsed.AuthDir) != filepath.Clean(home.AuthDir()) {
+		t.Fatalf("auth-dir not moved: %s", restored)
 	}
 	if !strings.Contains(mustRead(t, filepath.Join(home.AuthDir(), "claude-alice.json")), "secret-one") {
 		t.Fatal("auth not in the new folder")
@@ -502,5 +526,73 @@ func TestSafeEntryNameAcceptsRealPaths(t *testing.T) {
 		if !safeEntryName(name) {
 			t.Errorf("%q should be allowed", name)
 		}
+	}
+}
+
+// An archive's config must not be able to choose where a restore writes or deletes.
+func TestRestoreNeverTouchesAnAuthDirOutsideTheDataFolder(t *testing.T) {
+	setupHome(t)
+	outside := t.TempDir()
+	victim := filepath.Join(outside, "keep-me.json")
+	mustWrite(t, victim, "precious")
+
+	archive := craft(t, func(w *tar.Writer) {
+		addFile(t, w, manifestName, validManifest)
+		addFile(t, w, configEntry, "auth-dir: \""+filepath.ToSlash(outside)+"\"\n")
+		addFile(t, w, "auth/claude-alice@example.com.json", "new-login")
+	})
+	if _, _, err := Stage(context.Background(), bytes.NewReader(archive), passphrase, Options{ConfigPath: home.ConfigPath()}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ApplyPending(home.ConfigPath()); err != nil {
+		t.Fatal(err)
+	}
+	if mustRead(t, victim) != "precious" {
+		t.Fatal("a file outside the data folder was changed")
+	}
+	if _, err := os.Stat(filepath.Join(outside, "claude-alice@example.com.json")); !os.IsNotExist(err) {
+		t.Fatal("restore wrote outside the data folder")
+	}
+	if mustRead(t, filepath.Join(home.AuthDir(), "claude-alice@example.com.json")) != "new-login" {
+		t.Fatal("login not restored into the data folder")
+	}
+	parsed, err := config.ParseConfigBytes([]byte(mustRead(t, home.ConfigPath())))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Clean(parsed.AuthDir) != filepath.Clean(home.AuthDir()) {
+		t.Fatalf("config still points elsewhere: %s", parsed.AuthDir)
+	}
+}
+
+// A backup with no logins restores to no logins, and state created after the backup
+// does not survive, apart from files describing this running process.
+func TestRestoreMatchesTheBackupExactly(t *testing.T) {
+	setupHome(t)
+	mustWrite(t, filepath.Join(home.AuthDir(), "newer-login.json"), "newer")
+	mustWrite(t, filepath.Join(home.DataDir(), "tailscale.json"), `{"identity":{"enabled":true}}`)
+	mustWrite(t, filepath.Join(home.DataDir(), "update-state.json"), "keep")
+
+	archive := craft(t, func(w *tar.Writer) {
+		addFile(t, w, manifestName, validManifest)
+		addFile(t, w, configEntry, "port: 8317\n")
+		addFile(t, w, "data/setup.json", "{}")
+	})
+	if _, _, err := Stage(context.Background(), bytes.NewReader(archive), passphrase, Options{ConfigPath: home.ConfigPath()}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ApplyPending(home.ConfigPath()); err != nil {
+		t.Fatal(err)
+	}
+	for _, gone := range []string{filepath.Join(home.AuthDir(), "newer-login.json"), filepath.Join(home.DataDir(), "tailscale.json")} {
+		if _, err := os.Stat(gone); !os.IsNotExist(err) {
+			t.Fatalf("%s survived the restore", gone)
+		}
+	}
+	if mustRead(t, filepath.Join(home.DataDir(), "update-state.json")) != "keep" {
+		t.Fatal("process state was removed")
+	}
+	if mustRead(t, filepath.Join(home.DataDir(), "setup.json")) != "{}" {
+		t.Fatal("backup state not restored")
 	}
 }

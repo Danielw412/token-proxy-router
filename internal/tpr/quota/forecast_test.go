@@ -358,8 +358,14 @@ func TestBurnRateUsesTheWindowAndIgnoresResets(t *testing.T) {
 	}
 	a := acct("a", 68)
 	a.Series = series
-	// 80 -> 68 over the 3-hour window.
-	near(t, "burn", BurnPerHour(now, 3*hour, []AccountInput{a}), 4)
+	// 80 -> 74 took two hours, so one of those hours falls inside the 3-hour window:
+	// 3 + 4 + 2 = 9 points over 3 hours.
+	near(t, "burn", BurnPerHour(now, 3*hour, []AccountInput{a}), 3)
+
+	// Sparse polling must not squeeze a long drop into the window.
+	sparse := acct("s", 60)
+	sparse.Series = []SeriesPoint{{At: now.Add(-4 * hour), Remaining: 100}, {At: now, Remaining: 60}}
+	near(t, "sparse", BurnPerHour(now, hour, []AccountInput{sparse}), 10)
 
 	// A reset between two samples: drop is measured from a full window, and the
 	// rise itself is not counted as use.

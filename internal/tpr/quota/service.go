@@ -245,15 +245,20 @@ func (s *Service) Pools(q Query) ([]PoolView, time.Time, error) {
 func (s *Service) poolView(provider string, pool *router.Pool, now time.Time, q Query) (PoolView, error) {
 	state := pool.Engine.View(1)
 	accounts := append([]engine.AccountView(nil), state.Accounts...)
-	// The order the router would drain them in: the account in use, then normal
-	// accounts in routing order, then reserves.
+	// The order the router would drain them in, from the router's own ranking.
+	// Accounts it would not choose right now sort after those it would.
+	drain := map[string]int{}
+	for i, id := range pool.Engine.DrainOrder() {
+		drain[id] = i + 1
+	}
 	sort.SliceStable(accounts, func(i, j int) bool {
 		a, b := accounts[i], accounts[j]
-		if a.Active != b.Active {
-			return a.Active
+		ra, rb := drain[a.ID], drain[b.ID]
+		if (ra != 0) != (rb != 0) {
+			return ra != 0
 		}
-		if (a.Role == engine.RoleReserve) != (b.Role == engine.RoleReserve) {
-			return b.Role == engine.RoleReserve
+		if ra != rb {
+			return ra < rb
 		}
 		if a.Order != b.Order {
 			return a.Order < b.Order

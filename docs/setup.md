@@ -86,9 +86,9 @@ On Windows, run `tailscale set --operator=%USERNAME%` in a terminal opened with 
 
 ### Sign in with your tailnet identity
 
-This is optional and off by default. Turn it on in the panel, with the logins you want to allow, to open the panel from the tailnet without typing the management key.
+This is optional, off by default, and only available on Linux hubs. Turn it on in the panel, with the logins you want to allow, to open the panel from the tailnet without typing the management key.
 
-A request skips the key only if all of these hold: it came through `tailscale serve` on this machine, the server is bound to loopback, its `Tailscale-User-Login` is allowed, Tailscale's own `whois` for the sender's address agrees, it is addressed to this machine's tailnet name, and it did not come from another website. If any check fails, the normal key check applies.
+A request skips the key only if all of these hold: it came through `tailscale serve` on this machine, the connection is owned by root (as `tailscaled` runs) or by the user running TPR, the server is bound to loopback, its `Tailscale-User-Login` is allowed, Tailscale's own `whois` for the sender's address agrees, it is addressed to this machine's tailnet name, and it did not come from another website. If any check fails, the normal key check applies.
 
 ## Set up a client
 

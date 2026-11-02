@@ -30,10 +30,11 @@ func installedBinary() string {
 func cmdInstall(c *context_, args []string) error {
 	flags := newFlags(c, "install")
 	noService := flags.Bool("no-service", false, "only copy the binary and add it to PATH (for machines that just use a hub)")
-	configPath := configFlag(flags)
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
+	// The service always runs the data folder's config. TPR_HOME moves the folder.
+	configPath := home.ConfigPath()
 	if err := home.Ensure(); err != nil {
 		return fmt.Errorf("create data folder %s: %w", home.Dir(), err)
 	}
@@ -62,7 +63,7 @@ func cmdInstall(c *context_, args []string) error {
 		fmt.Fprintln(c.out, "Client setup done. Next: tpr connect --hub <hub-url> --key <client key>")
 		return nil
 	}
-	first, err := setup.Bootstrap(*configPath)
+	first, err := setup.Bootstrap(configPath)
 	if err != nil {
 		return err
 	}
@@ -73,7 +74,7 @@ func cmdInstall(c *context_, args []string) error {
 	if err != nil {
 		return err
 	}
-	info, err := loadInfo(*configPath)
+	info, err := loadInfo(configPath)
 	if err != nil {
 		return err
 	}

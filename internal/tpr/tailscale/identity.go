@@ -43,6 +43,9 @@ type Checker struct {
 	DNSName func(ctx context.Context) string
 	// Now is the clock used for the whois cache.
 	Now func() time.Time
+	// PeerTrusted decides whether the connection's local owner may speak for
+	// Tailscale. Nil means the real check for this OS.
+	PeerTrusted func(*http.Request) bool
 
 	mu    sync.Mutex
 	cache map[string]whoisEntry
@@ -83,6 +86,13 @@ func (k *Checker) Check(r *http.Request, bindHost string) (string, bool) {
 		return "", false
 	}
 	if !browserRequestIsSameOrigin(r) {
+		return "", false
+	}
+	peerTrusted := k.PeerTrusted
+	if peerTrusted == nil {
+		peerTrusted = defaultPeerTrusted
+	}
+	if !peerTrusted(r) {
 		return "", false
 	}
 	ctx := r.Context()

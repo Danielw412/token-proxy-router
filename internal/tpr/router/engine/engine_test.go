@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -618,5 +619,31 @@ func TestViewSeparatesWorkingAndIdleSessions(t *testing.T) {
 		if a.ID == accA && !a.LastUsed.Equal(clk.now()) {
 			t.Fatalf("last used not recorded: %v", a.LastUsed)
 		}
+	}
+}
+
+// A forecast must spend quota in the order routing will, not in the configured order.
+func TestDrainOrderFollowsTheRanking(t *testing.T) {
+	e, _ := newTestEngine(t, func(s *Settings) {
+		s.AccountOrder = []string{accA, accB, accC}
+		s.RankBy = []string{RankWeeklyReset, RankAccountOrder}
+	})
+	healthyAll(e)
+	quota(e, accA, 10, 30, 3*time.Hour, 6*24*time.Hour)
+	quota(e, accB, 10, 30, 3*time.Hour, 4*24*time.Hour)
+	quota(e, accC, 10, 30, 3*time.Hour, 2*24*time.Hour)
+
+	e.mu.Lock()
+	e.st.Active = ""
+	e.mu.Unlock()
+	if got := e.DrainOrder(); !slices.Equal(got, []string{accC, accB, accA}) {
+		t.Fatalf("no current account: order = %v", got)
+	}
+
+	e.mu.Lock()
+	e.st.Active = accA
+	e.mu.Unlock()
+	if got := e.DrainOrder(); !slices.Equal(got, []string{accA, accC, accB}) {
+		t.Fatalf("the current account drains first: order = %v", got)
 	}
 }
