@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/home"
 )
@@ -32,11 +33,15 @@ func TestLockHelper(t *testing.T) {
 	if os.Getenv("TPR_LOCK_HELPER") != "1" {
 		t.Skip("helper for TestLockIsFreedWhenItsHolderDies")
 	}
-	if _, err := acquireLock(); err != nil {
+	release, err := acquireLock()
+	if err != nil {
 		t.Fatal(err)
 	}
+	defer release()
 	_, _ = os.Stdout.WriteString("locked\n")
-	select {}
+	// Not select{}: without cgo, Go's deadlock detector would end this process, which
+	// frees the lock and defeats the test.
+	time.Sleep(time.Hour)
 }
 
 func TestLockIsFreedWhenItsHolderDies(t *testing.T) {
