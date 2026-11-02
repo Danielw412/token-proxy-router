@@ -38,6 +38,9 @@ func newEnv(t *testing.T) *cliEnv {
 	t.Setenv(home.EnvHome, filepath.Join(env.user, ".token-proxy-router"))
 	t.Setenv("HOME", env.user)
 	t.Setenv("USERPROFILE", env.user)
+	// T3 Code exports this to its agents and it wins over HOME, so without
+	// clearing it a test run from a T3 shell would edit the real T3 settings.
+	t.Setenv("T3CODE_HOME", "")
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("SHELL", "/bin/bash")
 	t.Setenv("PATH", "")

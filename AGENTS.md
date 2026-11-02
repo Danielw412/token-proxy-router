@@ -23,7 +23,8 @@ contract), then [docs/routing.md](docs/routing.md) or
 3. **Production is live.** A hub carries real work. Do not stop, restart, migrate or
    reconfigure a running install, or touch its data folder, `~/.codex`, `~/.claude` or
    `~/.t3`, unless the user asked for that specific change. Test with `TPR_HOME` and
-   `HOME` pointed at temp directories.
+   `HOME` pointed at temp directories, and also set `T3CODE_HOME` to a temp directory:
+   T3 Code exports it to shells it starts, and it overrides `HOME` for `tpr connect`.
 4. **Only one server per set of logins.** Providers rotate refresh tokens, so two servers
    holding the same login log each other out. Never run a second instance on real auth
    files, including for a test.
