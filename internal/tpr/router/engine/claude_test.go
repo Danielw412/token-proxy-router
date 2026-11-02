@@ -275,3 +275,19 @@ func TestSettingsDefaultPerPool(t *testing.T) {
 		t.Fatalf("empty codex settings fell back to %q", n.WindowStartModel)
 	}
 }
+
+func TestExplicitRefreshPollsEvenWithPeriodicPollingOff(t *testing.T) {
+	s := DefaultSettings()
+	s.QuotaPollMinutes = 0
+	s, _ = s.Normalize(nil)
+	clk := &fakeClock{t: t0}
+	e := New(s, nil, clk.now)
+	e.ObserveAccounts([]HostAccount{{ID: accA, AuthIndex: "1", Provider: "codex"}})
+	if got := e.PollTargets(); len(got) != 0 {
+		t.Fatalf("periodic polling is off: %+v", got)
+	}
+	e.ForcePollAll()
+	if got := e.PollTargets(); len(got) != 1 {
+		t.Fatalf("a forced refresh must still poll: %+v", got)
+	}
+}

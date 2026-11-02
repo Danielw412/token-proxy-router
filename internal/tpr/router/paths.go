@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/home"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/router/engine"
@@ -78,7 +79,8 @@ func writeFileAtomic(path string, raw []byte) error {
 	}
 	name := tmp.Name()
 	defer func() { _ = os.Remove(name) }()
-	if errChmod := tmp.Chmod(0o600); errChmod != nil {
+	// Windows has no owner-only mode bits, and the data folder's ACL covers it.
+	if errChmod := tmp.Chmod(0o600); errChmod != nil && runtime.GOOS != "windows" {
 		_ = tmp.Close()
 		return errChmod
 	}

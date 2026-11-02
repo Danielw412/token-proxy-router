@@ -1461,15 +1461,16 @@ type PollTarget struct {
 func (e *Engine) PollTargets() []PollTarget {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.settings.QuotaPollMinutes <= 0 {
-		return nil
-	}
 	now := e.now()
 	interval := time.Duration(e.settings.QuotaPollMinutes) * time.Minute
 	var out []PollTarget
 	for _, id := range e.knownIDs() {
 		a := e.st.Accounts[id]
 		if a.authIndex == "" || !a.inRoster || a.hostDisabled {
+			continue
+		}
+		// With periodic polling off, only an explicit refresh polls.
+		if e.settings.QuotaPollMinutes <= 0 && !a.forcePoll {
 			continue
 		}
 		if !a.forcePoll && !a.LastPolled.IsZero() && now.Sub(a.LastPolled) < interval/2 {
@@ -1700,9 +1701,6 @@ func (e *Engine) parseFailure(status int, body string, now time.Time) (QuotaErro
 	return ParseQuotaError(status, body, now)
 }
 
-// Provider returns the pool this engine routes.
-func (e *Engine) Provider() string { return e.provider }
-
 // QuotaOf returns a copy of an account's latest quota, or false if none is known.
 func (e *Engine) QuotaOf(id string) (Quota, bool) {
 	e.mu.Lock()
@@ -1714,47 +1712,9 @@ func (e *Engine) QuotaOf(id string) (Quota, bool) {
 	return a.Quota.clone(), true
 }
 
-// AccountSummary is the read-only per-account view other features need.
-type AccountSummary struct {
-	ID     string
-	Label  string
-	Email  string
-	Plan   string
-	Role   string
-	Order  int
-	Active bool
-	Quota  *Quota
-}
-
-// Summaries lists the accounts that still exist, with their latest quota.
-func (e *Engine) Summaries() []AccountSummary {
+// AccountIDs lists the accounts that still exist.
+func (e *Engine) AccountIDs() []string {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	ids := e.knownIDs()
-	out := make([]AccountSummary, 0, len(ids))
-	for _, id := range ids {
-		a := e.st.Accounts[id]
-		sum := AccountSummary{ID: id, Label: e.label(id), Email: a.Email, Plan: a.Plan, Role: e.settings.Role(id),
-			Order: e.settings.OrderIndex(id), Active: id == e.st.Active}
-		if a.Quota != nil {
-			q := a.Quota.clone()
-			sum.Quota = &q
-		}
-		out = append(out, sum)
-	}
-	return out
-}
-
-// SetPlan records a plan learned out of band, such as from a profile endpoint.
-func (e *Engine) SetPlan(id, plan string) {
-	plan = strings.TrimSpace(plan)
-	if plan == "" {
-		return
-	}
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if a := e.st.Accounts[id]; a != nil && a.Plan != plan {
-		a.Plan = plan
-		e.dirty = true
-	}
+	return e.knownIDs()
 }

@@ -1,7 +1,7 @@
 // Package e2e boots a real server in-process against a mock upstream that speaks
-// both Codex and Claude. Nothing leaves the machine: every account is a fake auth
-// file in a temp dir, TPR_HOME is a temp dir, and every upstream call is rewritten
-// to the mock.
+// both Codex and Claude. No credential or account data leaves the machine: every
+// account is a fake auth file in a temp dir, TPR_HOME is a temp dir, and every model
+// and quota call goes to the mock. Upstream's own version checks still run.
 //
 // Run it with: go test -race ./internal/tpr/e2e/
 // It takes several seconds, so -short skips it.
@@ -77,6 +77,11 @@ func (m *mock) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		m.countPoll(acct)
 		used := m.usedOf(acct)
 		w.Header().Set("Content-Type", "application/json")
+		if acct.idle {
+			// Codex's idle window: 0% used, with a reset that keeps sliding.
+			fmt.Fprintf(w, `{"plan_type":"plus","rate_limit":{"allowed":true,"primary_window":{"used_percent":0,"limit_window_seconds":18000,"reset_after_seconds":18000},"secondary_window":{"used_percent":%v,"limit_window_seconds":604800,"reset_after_seconds":259200}}}`, used)
+			return
+		}
 		fmt.Fprintf(w, `{"plan_type":"plus","rate_limit":{"allowed":true,"primary_window":{"used_percent":%v,"limit_window_seconds":18000,"reset_after_seconds":3600},"secondary_window":{"used_percent":%v,"limit_window_seconds":604800,"reset_after_seconds":259200}}}`, used/2, used)
 	case r.URL.Path == "/api/oauth/usage":
 		m.countPoll(acct)
@@ -94,6 +99,9 @@ func (m *mock) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `{"account":{"has_claude_max":true},"organization":{"rate_limit_tier":"default_claude_max_5x"}}`)
 	case strings.HasSuffix(r.URL.Path, "/responses"):
 		m.record(acct)
+		m.mu.Lock()
+		m.models[acct.file] = payload.Model
+		m.mu.Unlock()
 		m.codexResponse(w, acct)
 	case strings.HasSuffix(r.URL.Path, "/messages"):
 		m.record(acct)
@@ -210,6 +218,7 @@ type server struct {
 	carol     *account
 	dave      *account
 	erin      *account // Off for automatic routing; only window starts reach it
+	frank     *account // the same, in the Codex pool
 	mockURL   string
 	client    *http.Client
 	authDir   string
@@ -255,11 +264,12 @@ func boot(t *testing.T) *server {
 	s.carol = &account{file: "claude-carol@example.com.json", token: "fake-claude-carol", email: "carol@example.com", used: 15}
 	s.dave = &account{file: "claude-dave@example.com.json", token: "fake-claude-dave", email: "dave@example.com", used: 25}
 	s.erin = &account{file: "claude-erin@example.com.json", token: "fake-claude-erin", email: "erin@example.com", used: 5, idle: true}
+	s.frank = &account{file: "codex-frank@example.com-plus.json", token: "fake-codex-frank", email: "frank@example.com", used: 5, idle: true}
 	s.mock = &mock{t: t, byTok: map[string]*account{}, polls: map[string]int{}, models: map[string]string{}}
 	if err := os.MkdirAll(s.authDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	for _, a := range []*account{s.alice, s.bob} {
+	for _, a := range []*account{s.alice, s.bob, s.frank} {
 		s.mock.byTok[a.token] = a
 		writeAuth(t, s.authDir, a, "codex", "plus")
 	}
@@ -271,13 +281,13 @@ func boot(t *testing.T) *server {
 	t.Cleanup(upstream.Close)
 	s.mockURL = upstream.URL
 
-	oldDelay, oldTick, oldCodex, oldUsage, oldProfile := router.InitialLoopDelay, router.TickEvery, router.CodexUsageURL, router.ClaudeUsageURL, router.ClaudeProfileURL
-	router.InitialLoopDelay, router.TickEvery = 50*time.Millisecond, 150*time.Millisecond
+	oldDelay, oldTick, oldSettle, oldCodex, oldUsage, oldProfile := router.InitialLoopDelay, router.TickEvery, router.StarterSettleWait, router.CodexUsageURL, router.ClaudeUsageURL, router.ClaudeProfileURL
+	router.InitialLoopDelay, router.TickEvery, router.StarterSettleWait = 50*time.Millisecond, 150*time.Millisecond, 10*time.Millisecond
 	router.CodexUsageURL = upstream.URL + "/backend-api/wham/usage"
 	router.ClaudeUsageURL = upstream.URL + "/api/oauth/usage"
 	router.ClaudeProfileURL = upstream.URL + "/api/oauth/profile"
 	t.Cleanup(func() {
-		router.InitialLoopDelay, router.TickEvery = oldDelay, oldTick
+		router.InitialLoopDelay, router.TickEvery, router.StarterSettleWait = oldDelay, oldTick, oldSettle
 		router.CodexUsageURL, router.ClaudeUsageURL, router.ClaudeProfileURL = oldCodex, oldUsage, oldProfile
 	})
 
@@ -363,12 +373,13 @@ upstream:
 		return true
 	})
 	s.mgmtJSON(http.MethodPatch, "/router/settings?provider=claude", fmt.Sprintf(`{"disabled_accounts":[%q]}`, s.erin.file), &map[string]any{})
+	s.mgmtJSON(http.MethodPatch, "/router/settings?provider=codex", fmt.Sprintf(`{"disabled_accounts":[%q]}`, s.frank.file), &map[string]any{})
 	return s
 }
 
 func (s *server) waitFor(what string, cond func() bool) {
 	s.t.Helper()
-	deadline := time.Now().Add(20 * time.Second)
+	deadline := time.Now().Add(45 * time.Second)
 	for time.Now().Before(deadline) {
 		if cond() {
 			return
@@ -650,51 +661,58 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("window start sends one request locked to the account", func(t *testing.T) {
-		oldSettle := router.StarterSettleWait
-		router.StarterSettleWait = 10 * time.Millisecond
-		defer func() { router.StarterSettleWait = oldSettle }()
-		s.waitFor("the idle account's window to read as idle", func() bool {
-			var state struct {
-				Windows []struct {
-					Account string `json:"account"`
-					State   string `json:"state"`
-				} `json:"windows"`
-			}
-			s.mgmtJSON(http.MethodGet, "/router/state?provider=claude", "", &state)
-			for _, w := range state.Windows {
-				if w.Account == s.erin.file {
-					return w.State == "idle"
-				}
-			}
-			return false
-		})
-		s.mgmtJSON(http.MethodPost, "/router/windows/start?provider=claude", fmt.Sprintf(`{"account":%q}`, s.erin.file), &map[string]any{})
-		var status string
-		s.waitFor("the start to be logged", func() bool {
-			var state struct {
-				Starter struct {
-					Log []struct {
+		for _, c := range []struct {
+			provider, model string
+			account         *account
+		}{
+			{"claude", "claude-haiku-5-5", s.erin},
+			{"codex", "gpt-6-luna", s.frank},
+		} {
+			s.waitFor("the idle account's window to read as idle", func() bool {
+				var state struct {
+					Windows []struct {
 						Account string `json:"account"`
-						Status  string `json:"status"`
-					} `json:"log"`
-				} `json:"starter"`
-			}
-			s.mgmtJSON(http.MethodGet, "/router/state?provider=claude", "", &state)
-			for _, entry := range state.Starter.Log {
-				if entry.Account == s.erin.file {
-					status = entry.Status
-					return true
+						State   string `json:"state"`
+					} `json:"windows"`
 				}
+				s.mgmtJSON(http.MethodGet, "/router/state?provider="+c.provider, "", &state)
+				for _, w := range state.Windows {
+					if w.Account == c.account.file {
+						return w.State == "idle"
+					}
+				}
+				return false
+			})
+			s.mgmtJSON(http.MethodPost, "/router/windows/start?provider="+c.provider, fmt.Sprintf(`{"account":%q}`, c.account.file), &map[string]any{})
+			var status, detail string
+			s.waitFor("the start to be logged", func() bool {
+				var state struct {
+					Starter struct {
+						Log []struct {
+							Account string `json:"account"`
+							Status  string `json:"status"`
+							Detail  string `json:"detail"`
+						} `json:"log"`
+					} `json:"starter"`
+				}
+				s.mgmtJSON(http.MethodGet, "/router/state?provider="+c.provider, "", &state)
+				for _, entry := range state.Starter.Log {
+					if entry.Account == c.account.file {
+						status, detail = entry.Status, entry.Detail
+						return true
+					}
+				}
+				return false
+			})
+			if status != "started" {
+				t.Fatalf("%s start: %q %q", c.provider, status, detail)
 			}
-			return false
-		})
-		if status != "started" {
-			t.Fatalf("start status = %q", status)
-		}
-		s.mock.mu.Lock()
-		defer s.mock.mu.Unlock()
-		if got := s.mock.models[s.erin.file]; got != "claude-haiku-5-5" {
-			t.Fatalf("the start reached the account with model %q", got)
+			s.mock.mu.Lock()
+			got := s.mock.models[c.account.file]
+			s.mock.mu.Unlock()
+			if got != c.model {
+				t.Fatalf("%s start reached the account with model %q", c.provider, got)
+			}
 		}
 	})
 
@@ -753,13 +771,31 @@ func TestEndToEnd(t *testing.T) {
 		if history.Provider != "codex" || len(history.Samples) == 0 {
 			t.Fatalf("history = %+v", history)
 		}
+		// Live numbers come from both providers' response headers, not only polls.
+		// The collector records one sample a minute per account, so this reads the
+		// router's view: a test this short would see only the first sample otherwise.
+		for _, provider := range router.Providers {
+			var state struct {
+				Accounts []struct {
+					Source string `json:"source"`
+				} `json:"accounts"`
+			}
+			s.mgmtJSON(http.MethodGet, "/router/state?provider="+provider, "", &state)
+			fromHeaders := false
+			for _, a := range state.Accounts {
+				fromHeaders = fromHeaders || a.Source == "response"
+			}
+			if !fromHeaders {
+				t.Fatalf("%s: no account's quota came from response headers: %+v", provider, state.Accounts)
+			}
+		}
 	})
 
 	t.Run("idle accounts are polled and the plan is learned", func(t *testing.T) {
 		s.waitFor("a poll of every account", func() bool {
 			s.mock.mu.Lock()
 			defer s.mock.mu.Unlock()
-			for _, a := range []*account{s.alice, s.bob, s.carol, s.dave, s.erin} {
+			for _, a := range []*account{s.alice, s.bob, s.carol, s.dave, s.erin, s.frank} {
 				if s.mock.polls[a.file] == 0 {
 					return false
 				}
@@ -828,7 +864,7 @@ func TestEndToEnd(t *testing.T) {
 				Status   string `json:"status"`
 			} `json:"accounts"`
 		}
-		if err := json.Unmarshal(raw, &body); err != nil || len(body.Accounts) != 5 {
+		if err := json.Unmarshal(raw, &body); err != nil || len(body.Accounts) != 6 {
 			t.Fatalf("accounts = %s err=%v", raw, err)
 		}
 	})

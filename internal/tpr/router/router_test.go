@@ -313,6 +313,63 @@ func TestUnifiedRejectionBlocksAClaudeAccount(t *testing.T) {
 	}
 }
 
+func TestEmptyRosterAtStartupDoesNotReadAsDeletedAccounts(t *testing.T) {
+	r, host := newTestRouter(t)
+	pool := r.Pool("codex")
+	if err := pool.Engine.Select("codex-b.json"); err != nil {
+		t.Fatal(err)
+	}
+	pool.Flush()
+
+	// A restart: state is on disk, and the manager has not loaded anything yet.
+	empty := &fakeHost{}
+	restarted := New(empty)
+	again := restarted.Pool("codex")
+	again.startedAt = time.Now()
+	var last time.Time
+	again.iteration(context.Background(), &last)
+	if !last.IsZero() {
+		t.Fatal("an empty first roster must be retried on the next tick")
+	}
+	if got := again.state(1).Active; got != "codex-b.json" {
+		t.Fatalf("the current account was lost to an empty roster: %q", got)
+	}
+	if got := len(again.state(1).Accounts); got != 2 {
+		t.Fatalf("saved accounts vanished: %d", got)
+	}
+
+	// The manager loads: the same pool picks the roster up on the next tick.
+	empty.mu.Lock()
+	empty.accounts = host.accounts
+	empty.mu.Unlock()
+	again.iteration(context.Background(), &last)
+	if last.IsZero() {
+		t.Fatal("a loaded roster must be accepted")
+	}
+	if got := again.state(1).Active; got != "codex-b.json" {
+		t.Fatalf("active after load = %q", got)
+	}
+
+	// Once a roster was seen, an empty one means the accounts really are gone.
+	empty.mu.Lock()
+	empty.accounts = nil
+	empty.mu.Unlock()
+	last = time.Time{}
+	again.iteration(context.Background(), &last)
+	if len(again.state(1).Accounts) != 0 {
+		t.Fatal("removed accounts must disappear")
+	}
+
+	// A server with no accounts at all stops waiting after the grace period.
+	idle := New(&fakeHost{}).Pool("claude")
+	idle.startedAt = time.Now().Add(-2 * rosterGrace)
+	var idleLast time.Time
+	idle.iteration(context.Background(), &idleLast)
+	if idleLast.IsZero() {
+		t.Fatal("the grace period must end")
+	}
+}
+
 func TestStateAndSettingsSurviveARestart(t *testing.T) {
 	r, _ := newTestRouter(t)
 	pool := r.Pool("claude")

@@ -115,10 +115,10 @@ func (s *Service) restoreLast() {
 		if pool == nil {
 			continue
 		}
-		for _, account := range pool.Engine.Summaries() {
-			samples, err := s.store.Samples(provider, account.ID, now.Add(-heartbeatGap), now)
+		for _, id := range pool.Engine.AccountIDs() {
+			samples, err := s.store.Samples(provider, id, now.Add(-heartbeatGap), now)
 			if err == nil && len(samples) > 0 {
-				s.last[provider+"\x00"+account.ID] = samples[len(samples)-1]
+				s.last[provider+"\x00"+id] = samples[len(samples)-1]
 			}
 		}
 	}
@@ -391,8 +391,8 @@ func (s *Service) providerOf(id string) string {
 		if pool == nil {
 			continue
 		}
-		for _, account := range pool.Engine.Summaries() {
-			if account.ID == id {
+		for _, known := range pool.Engine.AccountIDs() {
+			if known == id {
 				return provider
 			}
 		}

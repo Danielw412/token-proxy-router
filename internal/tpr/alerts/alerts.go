@@ -44,8 +44,9 @@ const (
 	accountClearMargin = 2.0
 	poolClearMargin    = 30 * time.Minute
 
-	forecastBurn    = 3 * time.Hour
-	forecastHorizon = 14 * 24 * time.Hour
+	forecastBurn     = 3 * time.Hour
+	forecastHorizon  = 14 * 24 * time.Hour
+	maxResetLookback = 24 * time.Hour
 )
 
 // Channel is one notification destination. Its URL is a secret.
@@ -207,8 +208,16 @@ func (s *Service) Evaluate(ctx context.Context) error {
 		}
 		return nil
 	}
+	// Only recent history matters here, so a timer this frequent stays cheap. The
+	// lookback covers resets since the last run, within reason after a long stop.
+	s.mu.Lock()
+	since := s.resetMark
+	s.mu.Unlock()
+	if earliest := now.Add(-maxResetLookback); since.Before(earliest) {
+		since = earliest
+	}
 	pools, _, err := s.forecast.Pools(quota.Query{
-		From:   now.Add(-forecastHorizon),
+		From:   since,
 		To:     now.Add(forecastHorizon),
 		Burn:   forecastBurn,
 		Window: quota.WindowWeekly,

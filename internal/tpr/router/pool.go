@@ -17,6 +17,7 @@ const (
 	rosterEvery     = 30 * time.Second
 	pollTimeout     = 20 * time.Second
 	maxPollsPerTick = 3
+	rosterGrace     = time.Minute
 )
 
 // Loop timing; variables so tests can shorten them.
@@ -35,6 +36,10 @@ type Pool struct {
 	observe  func(provider, id string)
 	// persist is off in tests that have no data folder.
 	persist bool
+
+	// startedAt and rosterSeen are touched only by the maintenance loop.
+	startedAt  time.Time
+	rosterSeen bool
 
 	mu        sync.Mutex
 	cancel    context.CancelFunc
@@ -81,9 +86,6 @@ func (p *Pool) addSnapshots() {
 	})
 }
 
-// Provider returns the pool's provider name.
-func (p *Pool) Provider() string { return p.provider }
-
 // start launches the background loops (idempotent).
 func (p *Pool) start() {
 	p.mu.Lock()
@@ -92,6 +94,7 @@ func (p *Pool) start() {
 		return
 	}
 	p.held.start()
+	p.startedAt = time.Now()
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancel = cancel
 	p.done = make(chan struct{})
@@ -196,13 +199,28 @@ func (p *Pool) iteration(ctx context.Context, lastRoster *time.Time) {
 		}
 	}()
 	if time.Since(*lastRoster) >= rosterEvery {
-		p.Engine.ObserveAccounts(p.host.Accounts())
-		*lastRoster = time.Now()
+		list := p.host.Accounts()
+		if p.rosterReady(list) {
+			p.Engine.ObserveAccounts(list)
+			*lastRoster = time.Now()
+		}
 	}
 	p.Engine.Tick()
 	p.pollDue(ctx)
 	p.logEvents()
 	p.Flush()
+}
+
+// rosterReady guards the start of a run. The router starts before the auth manager
+// has loaded its credentials, and an empty first list would read as every saved
+// account having been deleted, costing the current account and the sessions on it.
+// So an empty list only counts once a list has been seen, or after a grace period
+// for a server that really has no accounts.
+func (p *Pool) rosterReady(list []engine.HostAccount) bool {
+	if len(list) > 0 {
+		p.rosterSeen = true
+	}
+	return p.rosterSeen || time.Since(p.startedAt) >= rosterGrace
 }
 
 func (p *Pool) pollDue(ctx context.Context) {

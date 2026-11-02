@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -99,10 +100,8 @@ func (p *Pool) startWindow(ctx context.Context, plan engine.StartPlan) engine.St
 	p.held.setExempt(oneOff, true)
 	defer p.held.setExempt(oneOff, false)
 
-	execCtx, cancel := context.WithTimeout(ctx, starterTimeout)
-	defer cancel()
 	sent := time.Now()
-	resp, err := p.host.ExecuteModel(execCtx, p.provider, settings.WindowStartModel, body, headers, plan.Account)
+	resp, err := p.executeBounded(ctx, settings.WindowStartModel, body, headers, plan.Account)
 	if err == nil && resp.StatusCode != 0 && resp.StatusCode != 200 {
 		err = fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
@@ -125,6 +124,34 @@ func (p *Pool) startWindow(ctx context.Context, plan engine.StartPlan) engine.St
 		r.ResetAt = reset
 	}
 	return r
+}
+
+// executeBounded limits how long the starter waits, not the request: no timeout
+// is set on upstream traffic, and a request that outlives the wait finishes in the
+// background while the starter moves on to the next account.
+func (p *Pool) executeBounded(ctx context.Context, model string, body []byte, headers http.Header, account string) (ModelResponse, error) {
+	type result struct {
+		resp ModelResponse
+		err  error
+	}
+	done := make(chan result, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				done <- result{err: fmt.Errorf("window start recovered from panic: %v", r)}
+			}
+		}()
+		resp, err := p.host.ExecuteModel(ctx, p.provider, model, body, headers, account)
+		done <- result{resp, err}
+	}()
+	timer := time.NewTimer(starterTimeout)
+	defer timer.Stop()
+	select {
+	case r := <-done:
+		return r.resp, r.err
+	case <-timer.C:
+		return ModelResponse{}, fmt.Errorf("no response within %s", starterTimeout)
+	}
 }
 
 // readStarterUsage reads the token counts of either protocol's response.

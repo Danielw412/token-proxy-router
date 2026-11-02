@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
-// ResolvePath expands "~" and leaves relative paths relative to the
-// the proxy working directory (where config.yaml lives).
+// ResolvePath expands "~" and leaves relative paths relative to the working
+// directory.
 func ResolvePath(p string) string {
 	p = strings.TrimSpace(p)
 	if strings.HasPrefix(p, "~") {
@@ -53,7 +54,8 @@ func SaveState(path string, st State) error {
 	}
 	tmpName := tmp.Name()
 	defer os.Remove(tmpName)
-	if err := tmp.Chmod(0o600); err != nil {
+	// Windows has no owner-only mode bits, and the data folder's ACL covers it.
+	if err := tmp.Chmod(0o600); err != nil && runtime.GOOS != "windows" {
 		tmp.Close()
 		return err
 	}
