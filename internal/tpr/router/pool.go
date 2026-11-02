@@ -2,10 +2,13 @@ package router
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/router/engine"
 	log "github.com/sirupsen/logrus"
 )
@@ -62,6 +65,20 @@ func newPool(provider string, host Host, observe func(provider, id string), cloc
 		p.Engine.Restore(st)
 	}
 	return p
+}
+
+// addSnapshots puts the pool's live state and settings into backups, read from the
+// engine rather than from disk so a backup never misses the last few seconds.
+func (p *Pool) addSnapshots() {
+	tpr.AddSnapshot("data/router/"+p.provider+".state.json", func(w io.Writer) error {
+		st, _ := p.Engine.Export()
+		p.Engine.MarkDirty()
+		return json.NewEncoder(w).Encode(st)
+	})
+	tpr.AddSnapshot("data/router/"+p.provider+".settings.json", func(w io.Writer) error {
+		s, _ := p.Engine.Settings()
+		return json.NewEncoder(w).Encode(s)
+	})
 }
 
 // Provider returns the pool's provider name.

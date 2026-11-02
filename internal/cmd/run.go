@@ -13,6 +13,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/api"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/pluginhost"
+	tprbackend "github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/backend" // TPR
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy"
 	log "github.com/sirupsen/logrus"
 )
@@ -60,6 +61,7 @@ func StartServiceWithPluginHost(cfg *config.Config, configPath string, localPass
 		log.Errorf("failed to build proxy service: %v", err)
 		return
 	}
+	defer tprbackend.Start(service.TPRAttachment())() // TPR: start the native router and its features
 
 	err = service.Run(runCtx)
 	if err != nil && !errors.Is(err, context.Canceled) {
@@ -98,6 +100,7 @@ func StartServiceBackgroundWithPluginHost(cfg *config.Config, configPath string,
 
 	go func() {
 		defer close(doneCh)
+		defer tprbackend.Start(service.TPRAttachment())() // TPR: start the native router and its features
 		if err := service.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			log.Errorf("proxy service exited with error: %v", err)
 		}

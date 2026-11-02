@@ -74,6 +74,7 @@ func Start(mgr *coreauth.Manager, cfg func() *config.Config) *Router {
 	usage.RegisterNamedPlugin(usagePluginName, r)
 	for _, pool := range r.pools {
 		pool.start()
+		pool.addSnapshots()
 	}
 	current.Store(r)
 	return r
