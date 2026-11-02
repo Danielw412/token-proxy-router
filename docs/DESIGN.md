@@ -93,6 +93,15 @@ has to differ, update this file in the same commit.
 - **Default bind is loopback.** Remote access goes through `tailscale serve`.
 - **Versioning.** TPR tags are `vMAJOR.MINOR.PATCH`, independent of upstream.
   `UPSTREAM.md` records the upstream server and panel versions in each release.
+- **One supervisor everywhere.** Every service kind runs `tpr service-run`, which runs
+  the server as a child. Any process asks it to restart or stop through a signal file
+  in `data/`, since that works the same on Windows. It runs the health check after an
+  update and rolls back. Release assets are named `tpr-<os>-<arch>[.exe]`.
+- **Restore applies at the next start.** A running server holds its database open, and
+  Windows will not replace an open file. So restore validates and stages the archive
+  in `.restore-pending/`, and it is moved into place before the config is read.
+- **First-run overrides.** `TPR_PORT` and `TPR_BIND_HOST` choose what a newly generated
+  config says. A busy port moves to the next free one, and first run says so.
 
 ## CLI
 
@@ -108,10 +117,10 @@ tpr creds [--forget]        Show first-run keys / delete the plaintext copy
 tpr login <claude|codex>    Add an account (--no-browser for remote machines)
 tpr expose [--port 8443]    Publish on the tailnet with tailscale serve
 tpr unexpose
-tpr connect --hub URL --key KEY [--codex] [--claude] [--t3] [--dry-run] [--undo]
+tpr connect --hub URL --key KEY [--codex] [--claude] [--t3] [--default] [--dry-run] [--undo]
 tpr update [--check] [--rollback] [--version vX.Y.Z]
 tpr backup [FILE] / tpr restore FILE
-tpr migrate [--from DIR] [--dry-run]    Import an existing CLIProxyAPI install
+tpr migrate [--from DIR] [--dry-run] [--force]    Import an existing CLIProxyAPI install
 tpr doctor                  Diagnose common problems
 tpr version
 ```
@@ -280,6 +289,14 @@ is loopback, the `Tailscale-User-Login` header is in `allowed_logins`, and the l
 Tailscale API's `whois` for the forwarded client address returns the same login.
 Any failed check falls through to the normal key check. It never grants anything
 on a non-management route.
+
+Tailscale identity is ambient: a browser on the tailnet carries it on every request,
+and upstream answers with `Access-Control-Allow-Origin: *`. So two more conditions
+must hold, or any website the user visits could read the management API: the request's
+`Host` is this machine's tailnet name, and a browser request must be same-origin
+(`Origin` matches `Host`, `Sec-Fetch-Site` is not cross-site). Funnel requests are
+refused, and so are a repeated or list-valued `Tailscale-User-Login` or
+`X-Forwarded-For`, and a forwarded address outside Tailscale's ranges.
 
 `GET /session` (unauthenticated, under `/v8/management/tpr-public/session`) tells
 the login page whether identity sign-in applies to this request:
