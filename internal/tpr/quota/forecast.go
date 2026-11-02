@@ -419,7 +419,14 @@ func simulate(p Params, accounts []AccountInput, rate float64) simResult {
 
 		switch {
 		case resetting != nil:
-			add(now) // the step's bottom
+			// A reset of a full window changes nothing, so it adds no step.
+			step := false
+			for _, s := range resetting {
+				step = step || (100-s.rem)*s.Weight > percentEpsilon
+			}
+			if step {
+				add(now) // the step's bottom
+			}
 			for _, s := range resetting {
 				delta := (100 - s.rem) * s.Weight
 				s.rem = 100
@@ -439,8 +446,10 @@ func simulate(p Params, accounts []AccountInput, rate float64) simResult {
 					res.nextReset.DeltaPercent = round2(res.nextReset.DeltaPercent + delta)
 				}
 			}
-			add(now) // the step's top
-			dry = false
+			if step {
+				add(now) // the step's top
+				dry = false
+			}
 		case burning && current.rem <= 0:
 			add(now)
 			if res.firstEmpty == nil {

@@ -158,15 +158,15 @@ func (s *Service) HandleUsage(_ context.Context, rec usage.Record) {
 		hours = map[int64]store.KeyHour{}
 		s.pending[id] = hours
 	}
-	current, existed := hours[hour]
+	merged, existed := hours[hour]
 	if !existed {
 		if s.rows >= maxPending {
 			return
 		}
 		s.rows++
 	}
-	current.Add(row)
-	hours[hour] = current
+	merged.Add(row)
+	hours[hour] = merged
 }
 
 // Flush writes buffered usage. A failed write keeps it for the next try.

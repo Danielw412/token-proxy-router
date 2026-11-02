@@ -277,11 +277,11 @@ func orEmpty(in []string) []string {
 }
 
 func handlePatchSettings(c *gin.Context, p *Pool) {
-	current, _ := p.Engine.Settings()
-	if !decodeBody(c, &current) {
+	settings, _ := p.Engine.Settings()
+	if !decodeBody(c, &settings) {
 		return
 	}
-	normalized, warnings := current.NormalizeFor(p.provider, nil)
+	normalized, warnings := settings.NormalizeFor(p.provider, nil)
 	if p.persist {
 		if err := saveSettings(p.provider, normalized); err != nil {
 			jsonError(c, http.StatusInternalServerError, "could not save the settings")

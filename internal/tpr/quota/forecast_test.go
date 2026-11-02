@@ -307,6 +307,19 @@ func TestIdleFutureStillAppliesKnownResets(t *testing.T) {
 	}
 }
 
+func TestResetOfAFullWindowAddsNoStep(t *testing.T) {
+	a := acct("a", 100)
+	a.ResetAt = now.Add(hour)
+	a.Anchored = true
+	r := Forecast(params(3*week, 3*hour, FutureIdle), []AccountInput{a})
+	if len(r.Resets) != 0 || r.NextReset != nil {
+		t.Fatalf("a full window has nothing to give back: %+v", r)
+	}
+	if len(r.Projected) != 2 {
+		t.Fatalf("an unchanging curve needs only its two ends: %+v", r.Projected)
+	}
+}
+
 func TestSimultaneousResetsAddUp(t *testing.T) {
 	a, b := acct("a", 50), acct("b", 20)
 	a.ResetAt, b.ResetAt = now.Add(hour), now.Add(hour)
