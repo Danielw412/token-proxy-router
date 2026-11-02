@@ -71,9 +71,42 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
 	exit 1
 fi
 
+# Files TPR owns outright. Upstream edits to these are dropped instead of stopping
+# a sync, because they would conflict on nearly every release.
+tpr_owned() {
+	case "$1" in
+	README.md | README_CN.md | README_JA.md | AGENTS.md | CLAUDE.md | CHANGELOG.md | SECURITY.md) return 0 ;;
+	.github/*) return 0 ;;
+	panel/README.md | panel/README_CN.md | panel/AGENTS.md) return 0 ;;
+	*) return 1 ;;
+	esac
+}
+
+# Resolve conflicts in TPR-owned files by keeping our side. Returns 0 when that
+# clears every conflict and the merge has been committed.
+resolve_owned() {
+	local file
+	while IFS= read -r file; do
+		[ -n "$file" ] || continue
+		tpr_owned "$file" || continue
+		if git cat-file -e ":2:$file" 2>/dev/null; then
+			git checkout --ours -- "$file"
+			git add -- "$file"
+		else
+			git rm -q --cached -- "$file"
+			rm -f -- "$file"
+		fi
+	done <<EOF_CONFLICTS
+$(git diff --name-only --diff-filter=U)
+EOF_CONFLICTS
+	[ -z "$(git diff --name-only --diff-filter=U)" ] || return 1
+	git commit -q --no-edit
+}
+
 report_conflicts() {
 	local source="$1"
 	local files
+	resolve_owned && return 0
 	files="$(git diff --name-only --diff-filter=U)"
 	echo "Conflicts merging $source:" >&2
 	echo "$files" >&2

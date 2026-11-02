@@ -1,0 +1,4 @@
+# go.sum entries are additive, so a union merge is always correct.
+go.sum merge=union
+*.sh text eol=lf
+*.ps1 text eol=crlf
