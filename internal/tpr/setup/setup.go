@@ -26,6 +26,9 @@ const (
 	DefaultPort = 8317
 	// EnvPort picks the port written to a newly generated config.
 	EnvPort = "TPR_PORT"
+	// EnvBindHost picks the listen address written to a newly generated config. A
+	// container needs it, since loopback inside one cannot be reached from outside.
+	EnvBindHost = "TPR_BIND_HOST"
 	// EnvManagementKey gives CLI commands the management key after the plaintext
 	// copy in credentials.txt has been deleted.
 	EnvManagementKey = "TPR_MANAGEMENT_KEY"
@@ -110,7 +113,7 @@ func Bootstrap(configPath string) (*FirstRun, error) {
 		return nil, errPort
 	}
 	port := findFreePort(wanted)
-	content, errRender := RenderConfig(port, home.AuthDir(), keys)
+	content, errRender := RenderConfig(bindHost(), port, home.AuthDir(), keys)
 	if errRender != nil {
 		return nil, errRender
 	}
@@ -127,6 +130,13 @@ func Bootstrap(configPath string) (*FirstRun, error) {
 		return nil, err
 	}
 	return &FirstRun{ConfigPath: configPath, CredentialsPath: home.CredentialsPath(), Port: port, WantedPort: wanted}, nil
+}
+
+func bindHost() string {
+	if host := strings.TrimSpace(os.Getenv(EnvBindHost)); host != "" {
+		return host
+	}
+	return "127.0.0.1"
 }
 
 func wantedPort() (int, error) {
@@ -177,7 +187,7 @@ func randomToken(size int) (string, error) {
 // RenderConfig returns a compact config.yaml. The management key is stored as a
 // bcrypt hash, the same form upstream rewrites a plaintext key into on load, so
 // the plaintext never reaches this file.
-func RenderConfig(port int, authDir string, keys Keys) ([]byte, error) {
+func RenderConfig(host string, port int, authDir string, keys Keys) ([]byte, error) {
 	hashed, err := bcrypt.GenerateFromPassword([]byte(keys.Management), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("hash management key: %w", err)
@@ -188,8 +198,10 @@ func RenderConfig(port int, authDir string, keys Keys) ([]byte, error) {
 	b.WriteString("# repository for every option.\n")
 	b.WriteString("config-version: 8\n\n")
 	b.WriteString("server:\n")
-	b.WriteString("  # Loopback only. Use `tpr expose` to publish on your tailnet.\n")
-	b.WriteString("  host: \"127.0.0.1\"\n")
+	if IsLoopbackHost(host) {
+		b.WriteString("  # Loopback only. Use `tpr expose` to publish on your tailnet.\n")
+	}
+	fmt.Fprintf(&b, "  host: %s\n", strconv.Quote(host))
 	fmt.Fprintf(&b, "  port: %d\n\n", port)
 	b.WriteString("access:\n  # Client API keys. Tools send one of these as their API key.\n  api-keys:\n")
 	fmt.Fprintf(&b, "    - %s\n\n", strconv.Quote(keys.API))

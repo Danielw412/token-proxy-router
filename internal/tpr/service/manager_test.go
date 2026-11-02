@@ -100,7 +100,7 @@ func TestInstallSystemd(t *testing.T) {
 	if !strings.Contains(string(raw), "service-run") {
 		t.Fatalf("unit = %s", raw)
 	}
-	for _, want := range []string{"systemctl --user daemon-reload", "systemctl --user enable --now token-proxy-router.service", "loginctl enable-linger alice"} {
+	for _, want := range []string{"systemctl --user daemon-reload", "systemctl --user enable token-proxy-router.service", "systemctl --user restart token-proxy-router.service", "loginctl enable-linger alice"} {
 		if !fake.called(want) {
 			t.Errorf("missing call %q in %v", want, fake.calls)
 		}

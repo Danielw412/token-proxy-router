@@ -206,7 +206,12 @@ func (m *Manager) installSystemd(exe string) (Kind, error) {
 	if _, stderr, err := m.systemctl("daemon-reload"); err != nil {
 		return KindNone, fmt.Errorf("systemctl daemon-reload failed: %s", firstLine(stderr, err))
 	}
-	if _, stderr, err := m.systemctl("enable", "--now", unitName); err != nil {
+	if _, stderr, err := m.systemctl("enable", unitName); err != nil {
+		return KindNone, fmt.Errorf("could not enable the service: %s", firstLine(stderr, err))
+	}
+	// Restart also starts a stopped service, and picks up a new binary when
+	// install is run again.
+	if _, stderr, err := m.systemctl("restart", unitName); err != nil {
 		return KindNone, fmt.Errorf("could not start the service: %s. See `tpr logs`", firstLine(stderr, err))
 	}
 	saveKind(KindSystemd)
@@ -240,6 +245,9 @@ func (m *Manager) installWindows(exe string) (Kind, error) {
 	_, stderrTask, errTask := m.run("schtasks", "/Create", "/TN", taskName, "/SC", "ONLOGON", "/RL", "LIMITED", "/TR", command, "/F")
 	if errTask == nil {
 		saveKind(KindWindowsTask)
+		if SupervisorRunning() {
+			return KindWindowsTask, RequestRestart()
+		}
 		if _, _, errRun := m.run("schtasks", "/Run", "/TN", taskName); errRun != nil {
 			return KindWindowsTask, m.startDetached(exe)
 		}
@@ -251,6 +259,9 @@ func (m *Manager) installWindows(exe string) (Kind, error) {
 		return KindNone, fmt.Errorf("could not register autostart: %s", firstLine(stderrRun, errRun))
 	}
 	saveKind(KindWindowsRun)
+	if SupervisorRunning() {
+		return KindWindowsRun, RequestRestart()
+	}
 	return KindWindowsRun, m.startDetached(exe)
 }
 

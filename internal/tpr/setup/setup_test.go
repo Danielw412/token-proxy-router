@@ -174,6 +174,21 @@ func TestBootstrapMovesOffABusyPort(t *testing.T) {
 	}
 }
 
+func TestBindHostOverrideIsForFirstRunOnly(t *testing.T) {
+	tempHome(t)
+	t.Setenv(EnvBindHost, "0.0.0.0")
+	if _, err := Bootstrap(home.ConfigPath()); err != nil {
+		t.Fatal(err)
+	}
+	info, err := LoadServerInfo(home.ConfigPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Host != "0.0.0.0" {
+		t.Fatalf("host = %q", info.Host)
+	}
+}
+
 func TestBootstrapRejectsBadEnvPort(t *testing.T) {
 	tempHome(t)
 	t.Setenv(EnvPort, "not-a-port")

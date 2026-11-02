@@ -35,9 +35,11 @@ func pidAlive(pid int) bool {
 
 // configureChild gives the child its own process group, which is what lets the
 // supervisor send it CTRL_BREAK alone. Go treats that as an interrupt, so the
-// server shuts down cleanly.
+// server shuts down cleanly. The child must share the supervisor's console for the
+// event to reach it, so it must not get CREATE_NO_WINDOW, which would give it a
+// console of its own. The supervisor already has no visible window when detached.
 func configureChild(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: createNewProcessGroup | createNoWindow}
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: createNewProcessGroup}
 }
 
 func stopChild(cmd *exec.Cmd) {
