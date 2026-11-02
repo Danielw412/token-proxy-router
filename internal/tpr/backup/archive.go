@@ -34,6 +34,19 @@ const (
 	formatVersion = 1
 )
 
+// ephemeralData are data/ files describing this process and this moment. Restoring
+// one would make the next start act on a stale update or a dead supervisor, so they
+// are neither written nor accepted.
+var ephemeralData = map[string]bool{
+	"data/supervisor.json":     true,
+	"data/supervisor.restart":  true,
+	"data/supervisor.stop":     true,
+	"data/service.json":        true,
+	"data/update-state.json":   true,
+	"data/update-pending.json": true,
+	"data/update-check.json":   true,
+}
+
 // Manifest describes an archive. It holds no secrets.
 type Manifest struct {
 	Format    int    `json:"format"`
@@ -97,11 +110,11 @@ func writeEntries(ctx context.Context, archive *tar.Writer, opts Options) error 
 	} else if !errors.Is(errRead, os.ErrNotExist) {
 		return fmt.Errorf("read config: %w", errRead)
 	}
-	if err := writeTree(ctx, archive, authDir, "auth"); err != nil {
+	if err := writeTree(ctx, archive, authDir, "auth", nil); err != nil {
 		return err
 	}
 	if !opts.LiveSnapshots {
-		return writeTree(ctx, archive, home.DataDir(), "data")
+		return writeTree(ctx, archive, home.DataDir(), "data", nil)
 	}
 	snapshots := tpr.Snapshots()
 	names := make([]string, 0, len(snapshots))
@@ -114,7 +127,12 @@ func writeEntries(ctx context.Context, archive *tar.Writer, opts Options) error 
 			return fmt.Errorf("snapshot %s: %w", name, err)
 		}
 	}
-	return nil
+	// Plain state files need no snapshot function. A database does: copying one that
+	// is in use is what the snapshot exists to avoid, so those stay out.
+	return writeTree(ctx, archive, home.DataDir(), "data", func(name string) bool {
+		_, covered := snapshots[name]
+		return covered || strings.HasSuffix(name, ".db") || strings.HasSuffix(name, ".db-lock")
+	})
 }
 
 func writeSnapshot(ctx context.Context, archive *tar.Writer, name string, snapshot tpr.SnapshotFunc) error {
@@ -161,7 +179,7 @@ func writeEntry(archive *tar.Writer, name string, data []byte) error {
 	return err
 }
 
-func writeTree(ctx context.Context, archive *tar.Writer, root, prefix string) error {
+func writeTree(ctx context.Context, archive *tar.Writer, root, prefix string, skip func(name string) bool) error {
 	err := filepath.WalkDir(root, func(current string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			if errors.Is(walkErr, os.ErrNotExist) {
@@ -183,6 +201,10 @@ func writeTree(ctx context.Context, archive *tar.Writer, root, prefix string) er
 		if prefix == "auth" && strings.HasPrefix(filepath.ToSlash(relative), "logs/") {
 			return nil
 		}
+		name := path.Join(prefix, filepath.ToSlash(relative))
+		if ephemeralData[name] || (skip != nil && skip(name)) {
+			return nil
+		}
 		info, err := entry.Info()
 		if err != nil {
 			return err
@@ -192,7 +214,6 @@ func writeTree(ctx context.Context, archive *tar.Writer, root, prefix string) er
 			return err
 		}
 		defer func() { _ = file.Close() }()
-		name := path.Join(prefix, filepath.ToSlash(relative))
 		if err := archive.WriteHeader(&tar.Header{Typeflag: tar.TypeReg, Name: name, Mode: 0o600, Size: info.Size(), ModTime: info.ModTime()}); err != nil {
 			return err
 		}
@@ -211,7 +232,7 @@ func safeEntryName(name string) bool {
 	if name == "" || strings.ContainsAny(name, "\\:\x00") || strings.HasPrefix(name, "/") {
 		return false
 	}
-	if path.Clean(name) != name {
+	if path.Clean(name) != name || ephemeralData[name] {
 		return false
 	}
 	first := true

@@ -322,6 +322,25 @@ func replaceBinary(src, dst string, renameAside bool) error {
 	return nil
 }
 
+// InstallBinary copies src to dst in one step, even when dst is running.
+func InstallBinary(src, dst string) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".tpr-install-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	_ = tmp.Close()
+	defer func() { _ = os.Remove(tmpName) }()
+	if err := copyFile(src, tmpName); err != nil {
+		return err
+	}
+	_, statErr := os.Stat(dst)
+	return replaceBinary(tmpName, dst, runtime.GOOS == "windows" && statErr == nil)
+}
+
 // CleanupAside removes binaries left behind by earlier Windows swaps. Ones still
 // in use stay until a later run.
 func CleanupAside(target string) {

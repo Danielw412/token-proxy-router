@@ -178,6 +178,30 @@ func TestLiveSnapshotsUseRegisteredFunctions(t *testing.T) {
 	}
 }
 
+func TestLiveBackupIncludesPlainStateButNotOpenDatabases(t *testing.T) {
+	setupHome(t)
+	mustWrite(t, filepath.Join(home.DataDir(), "router-codex.json"), "router json")
+	mustWrite(t, filepath.Join(home.DataDir(), "other.db"), "database in use")
+	mustWrite(t, filepath.Join(home.DataDir(), "update-pending.json"), "stale")
+	mustWrite(t, filepath.Join(home.DataDir(), "supervisor.json"), "stale")
+	archive := makeArchive(t, Options{LiveSnapshots: true})
+	if _, _, err := Stage(context.Background(), bytes.NewReader(archive), passphrase, Options{ConfigPath: home.ConfigPath()}); err != nil {
+		t.Fatal(err)
+	}
+	staged := func(name string) bool {
+		_, err := os.Stat(filepath.Join(stagingDir(), filepath.FromSlash(name)))
+		return err == nil
+	}
+	if !staged("data/router-codex.json") {
+		t.Fatal("plain router state belongs in a backup")
+	}
+	for _, name := range []string{"data/other.db", "data/update-pending.json", "data/supervisor.json"} {
+		if staged(name) {
+			t.Fatalf("%s should not be in a backup", name)
+		}
+	}
+}
+
 func TestFailingSnapshotFailsTheBackup(t *testing.T) {
 	setupHome(t)
 	tpr.AddSnapshot("data/broken.db", func(io.Writer) error { return errors.New("db closed") })
@@ -348,6 +372,8 @@ func TestUnsafePathsAreRefused(t *testing.T) {
 		"data//x",
 		"data/x. ",
 		"data/x.",
+		"data/update-pending.json",
+		"data/supervisor.json",
 		"nul\x00byte",
 		"",
 	} {
