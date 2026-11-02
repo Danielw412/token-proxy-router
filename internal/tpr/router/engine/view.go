@@ -24,6 +24,7 @@ type AccountView struct {
 	Role         string      `json:"role"`
 	Order        int         `json:"order"`
 	State        string      `json:"state"` // ok|low|exhausted|unavailable|unknown|off
+	Disabled     bool        `json:"disabled,omitempty"`
 	Detail       string      `json:"detail,omitempty"`
 	Active       bool        `json:"active"`
 	Pinned       bool        `json:"pinned"`
@@ -185,6 +186,7 @@ func (e *Engine) View(historyLimit int) View {
 			BusySessions: busySessions[id],
 			IdleSessions: idleSessions[id],
 			LastUsed:     a.LastUsed,
+			Disabled:     a.hostDisabled,
 		}
 		if a.Quota != nil {
 			av.ObservedAt = a.Quota.ObservedAt

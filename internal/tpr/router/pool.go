@@ -43,10 +43,10 @@ type Pool struct {
 }
 
 // newPool creates a pool and restores its saved settings and state.
-func newPool(provider string, host Host, observe func(provider, id string)) *Pool {
+func newPool(provider string, host Host, observe func(provider, id string), clock func() time.Time) *Pool {
 	settings, warnings := loadSettings(provider)
 	p := &Pool{
-		Engine:    engine.NewForProvider(provider, settings, warnings, time.Now),
+		Engine:    engine.NewForProvider(provider, settings, warnings, clock),
 		provider:  provider,
 		host:      host,
 		observe:   observe,

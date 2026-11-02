@@ -55,10 +55,13 @@ var current atomic.Pointer[Router]
 func Current() *Router { return current.Load() }
 
 // New builds a router on a host. Most callers want Start.
-func New(host Host) *Router {
+func New(host Host) *Router { return NewWithClock(host, time.Now) }
+
+// NewWithClock builds a router whose engines read an injected clock.
+func NewWithClock(host Host, clock func() time.Time) *Router {
 	r := &Router{pools: make(map[string]*Pool, len(Providers))}
 	for _, provider := range Providers {
-		r.pools[provider] = newPool(provider, host, r.notifyObservers)
+		r.pools[provider] = newPool(provider, host, r.notifyObservers, clock)
 	}
 	return r
 }
