@@ -21,6 +21,8 @@ export interface LoginFormProps {
   onShowKeyChange: (value: boolean) => void;
   onRememberPasswordChange: (value: boolean) => void;
   onSubmit: () => void;
+  /** Another action on the page is primary, so this button stays quiet. */
+  quietSubmit?: boolean;
 }
 
 export function LoginForm({
@@ -39,6 +41,7 @@ export function LoginForm({
   onShowKeyChange,
   onRememberPasswordChange,
   onSubmit,
+  quietSubmit = false,
 }: LoginFormProps) {
   const { t } = useTranslation();
   const baseId = useId();
@@ -133,7 +136,7 @@ export function LoginForm({
       <div className={styles.actions} data-stagger>
         <button
           type="submit"
-          className={styles.submit}
+          className={quietSubmit ? `${styles.submit} ${styles.submitQuiet}` : styles.submit}
           disabled={locked}
           aria-busy={loading}
           data-state={success ? 'success' : loading ? 'loading' : undefined}

@@ -249,6 +249,7 @@ export function LoginPage() {
               onShowKeyChange={setShowKey}
               onRememberPasswordChange={setRememberPassword}
               onSubmit={handleSubmit}
+              quietSubmit={Boolean(identityLogin)}
             />
           </div>
         )}

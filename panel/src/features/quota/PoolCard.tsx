@@ -16,14 +16,8 @@ import {
   formatWhen,
 } from './chart/chartModel';
 import { PoolChart, type ChartMode } from './chart/PoolChart';
+import { providerColor } from './providerColor';
 import styles from './PoolCard.module.scss';
-
-export const providerColor = (provider: string): string =>
-  provider === 'claude'
-    ? 'var(--provider-claude)'
-    : provider === 'codex'
-      ? 'var(--provider-codex)'
-      : 'var(--text-secondary)';
 
 export interface PoolCardProps {
   pool: QuotaPool;
@@ -177,7 +171,9 @@ export function PoolCard({
                   {account.weight !== 1 ? ` · ${account.weight}x` : ''}
                 </span>
                 {account.status !== 'ok' ? (
-                  <Badge tone="warn">{account.status}</Badge>
+                  <Badge tone="warn">
+                    {t(`tpr.router.state_${account.status}`, { defaultValue: account.status })}
+                  </Badge>
                 ) : account.resetAt ? (
                   <span>{t('tpr.quota.resets', { when: formatWhen(Date.parse(account.resetAt), locale) })}</span>
                 ) : null}

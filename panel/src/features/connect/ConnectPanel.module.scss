@@ -8,7 +8,7 @@
   > div[role='radiogroup'] {
     align-self: flex-start;
     max-width: 100%;
-    overflow-x: auto;
+    flex-wrap: wrap;
   }
 }
 

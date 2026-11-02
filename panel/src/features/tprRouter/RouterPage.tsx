@@ -22,9 +22,10 @@ import {
   Segmented,
 } from '@/components/tpr/Ui';
 import { formatDuration, formatWhen } from '@/features/quota/chart/chartModel';
-import { providerColor } from '@/features/quota/PoolCard';
+import { providerColor } from '@/features/quota/providerColor';
 import { RoutingPage } from '@/features/routing/RoutingPage';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useNow } from '@/hooks/useNow';
 import { useTprResource } from '@/hooks/useTprResource';
 import {
   applyRoleChange,
@@ -67,7 +68,7 @@ export function RouterPage() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const pools = data ?? [];
   const pool = pools.find((item) => item.provider === provider) ?? pools[0] ?? null;
-  const now = Date.now();
+  const now = useNow();
 
   const act = async (action: () => Promise<unknown>, success?: string) => {
     setBusy(true);

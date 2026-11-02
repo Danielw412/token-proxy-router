@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { OAuthFlowDialog, type DialogHeading } from '@/features/oauth/components/OAuthFlowDialog';
@@ -33,11 +33,14 @@ export function useAccountLogin(options: { onAdded?: () => void } = {}) {
     isFocused: (provider) => focusedRef.current === provider,
   });
 
-  const addedRef = useRef(flows.addedCount);
-  if (addedRef.current !== flows.addedCount) {
-    addedRef.current = flows.addedCount;
-    options.onAdded?.();
-  }
+  const { addedCount } = flows;
+  const { onAdded } = options;
+  const lastAddedRef = useRef(addedCount);
+  useEffect(() => {
+    if (lastAddedRef.current === addedCount) return;
+    lastAddedRef.current = addedCount;
+    onAdded?.();
+  }, [addedCount, onAdded]);
 
   const open = (provider: string) => {
     const id = toOAuthProvider(provider);

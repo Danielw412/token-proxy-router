@@ -452,7 +452,9 @@
     font-family: $font-code;
     font-size: 12.5px;
     line-height: 1.6;
-    white-space: pre;
+    // Long commands wrap, so the Copy button never covers them.
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 }
 

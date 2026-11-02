@@ -13,6 +13,7 @@ import {
   Segmented,
   ToolbarLabel,
 } from '@/components/tpr/Ui';
+import { useNow } from '@/hooks/useNow';
 import { useTprResource } from '@/hooks/useTprResource';
 import {
   tprApi,
@@ -38,9 +39,9 @@ const DAYS_FORWARD = 11;
 const SHIFT_DAYS = 7;
 const REFRESH_MS = 60_000;
 
-export const burnHoursOf = (burn: BurnWindow): number => Number.parseInt(burn, 10) || 3;
+const burnHoursOf = (burn: BurnWindow): number => Number.parseInt(burn, 10) || 3;
 
-export const futureMultiplierOf = (future: FutureUsage): number =>
+const futureMultiplierOf = (future: FutureUsage): number =>
   future === 'idle' ? 0 : future === 'double' ? 2 : 1;
 
 export interface PoolsPanelProps {
@@ -65,13 +66,10 @@ export function PoolsPanel({ provider, refreshToken, onLoaded }: PoolsPanelProps
     writePoolsUi({ mode, burn, future });
   }, [burn, future, mode]);
 
-  const { from, to } = useMemo(() => {
-    const today = startOfLocalDay(Date.now());
-    return {
-      from: today + (offsetDays - DAYS_BACK) * DAY_MS,
-      to: today + (offsetDays + DAYS_FORWARD) * DAY_MS,
-    };
-  }, [offsetDays]);
+  const tick = useNow();
+  const today = startOfLocalDay(tick);
+  const from = today + (offsetDays - DAYS_BACK) * DAY_MS;
+  const to = today + (offsetDays + DAYS_FORWARD) * DAY_MS;
 
   const resource = useTprResource(
     () =>
@@ -141,7 +139,7 @@ export function PoolsPanel({ provider, refreshToken, onLoaded }: PoolsPanelProps
     };
   }, [from, selectedIds, to]);
 
-  const now = data?.now ? Date.parse(data.now) : Date.now();
+  const now = data?.now ? Date.parse(data.now) : tick;
 
   const pools = useMemo<QuotaPool[]>(() => {
     const all = (data?.pools ?? []).filter(

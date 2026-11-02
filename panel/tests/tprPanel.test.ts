@@ -3,16 +3,17 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createInstance } from 'i18next';
 import { routerPools } from '../dev/fixtures';
-import { countDone } from '@/features/setup/QuickStartPage';
-import { groupAccountsByProvider } from '@/features/accounts/AccountsPage';
-import { readBasicSettings, writeBasicSettings } from '@/features/settings/SettingsPage';
-import { recentFailures } from '@/features/dashboard/OverviewPage';
-import { splitEmails } from '@/components/tpr/Ui';
+import { countDone } from '@/features/setup/quickStartLogic';
+import { groupAccountsByProvider } from '@/features/accounts/accountGroups';
+import { readBasicSettings, writeBasicSettings } from '@/features/settings/basicSettings';
+import { recentFailures } from '@/features/dashboard/overviewLogic';
+import { maskEmails, splitEmails } from '@/components/tpr/emailText';
 import en from '@/i18n/locales/en.json';
 import ko from '@/i18n/locales/ko.json';
 import zhCN from '@/i18n/locales/zh-CN.json';
 import {
   applyRoleChange,
+  normalizeAlertEvents,
   normalizePool,
   normalizeRouterPool,
   type AccountHealth,
@@ -105,6 +106,23 @@ describe('quota normalization', () => {
   });
 });
 
+describe('alert events', () => {
+  test('live conditions lead and are flagged, without repeating their raising event', () => {
+    const list = normalizeAlertEvents({
+      active: [{ kind: 'low', provider: 'claude', account: 'a', message: 'now', since: '2026-10-26T10:00:00Z' }],
+      events: [
+        { at: '2026-10-26T10:00:00Z', kind: 'low', provider: 'claude', account: 'a', message: 'now' },
+        { at: '2026-10-25T10:00:00Z', kind: 'reset', provider: 'codex', message: 'older' },
+      ],
+    });
+    expect(list.map((event) => [event.message, event.active])).toEqual([
+      ['now', true],
+      ['older', false],
+    ]);
+    expect(normalizeAlertEvents(undefined)).toEqual([]);
+  });
+});
+
 describe('basic settings', () => {
   const YAML = `# keep me
 server:
@@ -194,6 +212,7 @@ describe('page logic', () => {
       { text: '.json', email: false },
     ]);
     expect(splitEmails('no address')).toEqual([{ text: 'no address', email: false }]);
+    expect(maskEmails('file-alice@example.com.json')).toBe('•••@•••.json');
   });
 });
 

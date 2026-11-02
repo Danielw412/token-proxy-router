@@ -17,6 +17,7 @@ import { IconCheck, IconChevronDown, IconCopy } from '@/components/ui/icons';
 import { getAuthFileIcon, getTypeLabel } from '@/features/authFiles/constants';
 import { usePrivacyStore, useNotificationStore, useThemeStore } from '@/stores';
 import { copyToClipboard } from '@/utils/clipboard';
+import { maskEmails, splitEmails } from './emailText';
 import styles from './Ui.module.scss';
 
 /* ----------------------------- page structure ------------------------------ */
@@ -376,8 +377,6 @@ export function MultiSelect({
 
 /* --------------------------------- privacy --------------------------------- */
 
-const EMAIL_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
-
 /** Renders one email, blurred until "Show emails" is on. */
 export function PrivateEmail({ value, fallback }: { value: string; fallback?: ReactNode }) {
   const { t } = useTranslation();
@@ -391,23 +390,10 @@ export function PrivateEmail({ value, fallback }: { value: string; fallback?: Re
   );
 }
 
-export const splitEmails = (text: string): Array<{ text: string; email: boolean }> => {
-  const parts: Array<{ text: string; email: boolean }> = [];
-  let last = 0;
-  for (const match of text.matchAll(EMAIL_PATTERN)) {
-    const start = match.index ?? 0;
-    if (start > last) parts.push({ text: text.slice(last, start), email: false });
-    parts.push({ text: match[0], email: true });
-    last = start + match[0].length;
-  }
-  if (last < text.length) parts.push({ text: text.slice(last), email: false });
-  return parts;
-};
-
 /** For attributes such as `title`, where a blur can't apply: replaces emails while hidden. */
 export function usePrivateAttr(text: string): string {
   const show = usePrivacyStore((state) => state.showEmails);
-  return show ? text : text.replace(EMAIL_PATTERN, '•••@•••');
+  return show ? text : maskEmails(text);
 }
 
 /** Plain text in which any email found is treated like PrivateEmail, such as file names. */

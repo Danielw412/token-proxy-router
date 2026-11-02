@@ -21,8 +21,10 @@ import { AUTH_FILES_CHANGED_EVENT } from '@/features/authFiles/authFilesEvents';
 import { OAuthPage } from '@/features/oauth/OAuthPage';
 import { formatDuration, formatShortDate } from '@/features/quota/chart/chartModel';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useNow } from '@/hooks/useNow';
 import { useTprResource } from '@/hooks/useTprResource';
-import { tprApi, type AccountHealth, type HealthStatus } from '@/services/api/tpr';
+import { tprApi, type HealthStatus } from '@/services/api/tpr';
+import { groupAccountsByProvider } from './accountGroups';
 import { useAccountLogin } from './useAccountLogin';
 import styles from './AccountsPage.module.scss';
 
@@ -35,37 +37,6 @@ const HEALTH_TONE: Record<HealthStatus, 'good' | 'warn' | 'bad' | 'neutral'> = {
   expired: 'bad',
   failing: 'bad',
   disabled: 'neutral',
-};
-
-/** Worst first, so anything needing attention sits at the top of its provider's list. */
-const HEALTH_ORDER: Record<HealthStatus, number> = {
-  failing: 0,
-  expired: 1,
-  expiring: 2,
-  cooling: 3,
-  disabled: 4,
-  ok: 5,
-};
-
-const PROVIDER_ORDER = ['claude', 'codex'];
-
-export const groupAccountsByProvider = (accounts: AccountHealth[]) => {
-  const groups = new Map<string, AccountHealth[]>();
-  accounts.forEach((account) => {
-    const list = groups.get(account.provider) ?? [];
-    list.push(account);
-    groups.set(account.provider, list);
-  });
-  const rank = (provider: string) => {
-    const index = PROVIDER_ORDER.indexOf(provider);
-    return index === -1 ? PROVIDER_ORDER.length : index;
-  };
-  return Array.from(groups.entries())
-    .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b))
-    .map(([provider, list]) => ({
-      provider,
-      accounts: [...list].sort((a, b) => HEALTH_ORDER[a.status] - HEALTH_ORDER[b.status]),
-    }));
 };
 
 export function AccountsPage() {
@@ -92,7 +63,7 @@ export function AccountsPage() {
   const accounts = useMemo(() => data ?? [], [data]);
   const groups = useMemo(() => groupAccountsByProvider(accounts), [accounts]);
   const healthy = accounts.filter((account) => account.status === 'ok').length;
-  const now = Date.now();
+  const now = useNow();
 
   const setView = (next: AccountsView) => {
     const nextParams = new URLSearchParams(params);

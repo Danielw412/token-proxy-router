@@ -438,6 +438,30 @@ const normalizeAlerts = (raw: unknown): AlertsConfig => {
   };
 };
 
+/** Current conditions arrive beside the event log; they lead the list, flagged as active. */
+export const normalizeAlertEvents = (raw: unknown): AlertEvent[] => {
+  const data = asRecord(raw);
+  const toEvent = (value: RawRecord, active: boolean, atKey: string): AlertEvent => ({
+    at: asString(value[atKey]),
+    kind: asString(value.kind),
+    provider: asString(value.provider),
+    account: asString(value.account),
+    message: asString(value.message),
+    active: active || asBool(value.active),
+  });
+  const conditions = asArray(data.active)
+    .map(asRecord)
+    .map((value) => toEvent(value, true, 'since'));
+  const sameCondition = (a: AlertEvent, b: AlertEvent) =>
+    a.kind === b.kind && a.provider === b.provider && a.account === b.account;
+  const events = asArray(data.events)
+    .map(asRecord)
+    .map((value) => toEvent(value, false, 'at'))
+    // The event that raised a live condition would otherwise show twice.
+    .filter((event) => !conditions.some((item) => sameCondition(item, event) && item.at === event.at));
+  return [...conditions, ...events];
+};
+
 /* --------------------------------- health ---------------------------------- */
 
 export type HealthStatus = 'ok' | 'expiring' | 'expired' | 'failing' | 'cooling' | 'disabled';
@@ -700,19 +724,8 @@ export const tprApi = {
         error: asString(result.error),
       }));
   },
-  alertEvents: async (limit = 50): Promise<AlertEvent[]> => {
-    const data = asRecord(await apiClient.get(`${BASE}/alerts/events`, { params: { limit } }));
-    return asArray(data.events)
-      .map(asRecord)
-      .map((event) => ({
-        at: asString(event.at),
-        kind: asString(event.kind),
-        provider: asString(event.provider),
-        account: asString(event.account),
-        message: asString(event.message),
-        active: asBool(event.active),
-      }));
-  },
+  alertEvents: async (limit = 50): Promise<AlertEvent[]> =>
+    normalizeAlertEvents(await apiClient.get(`${BASE}/alerts/events`, { params: { limit } })),
 
   health: async () => normalizeHealth(await apiClient.get(`${BASE}/health/accounts`)),
 

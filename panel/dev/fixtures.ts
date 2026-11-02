@@ -266,15 +266,18 @@ export const quotaPools = (now: number, query: QuotaQuery, zero = false) => ({
       ],
 });
 
-/** One account's samples, shaped so a filtered pool still shows resets and a hole. */
+/** One account's samples, built backwards so they end exactly on its current value. */
 export const accountHistory = (id: string, now: number, from: number, to: number) => {
+  const seed = [...CLAUDE_ACCOUNTS, ...CODEX_ACCOUNTS].find((account) => account.id === id);
   const random = seeded(id.length * 7919 + id.charCodeAt(id.length - 1));
   const samples: Array<{ at: string; percent: number | null }> = [];
-  let value = 95;
-  for (let at = Math.max(from, now - 14 * DAY); at <= Math.min(to, now); at += 2 * HOUR) {
-    value -= random() * 2.6;
-    if (value < 18 || random() > 0.985) value = 100;
-    samples.push({ at: iso(at), percent: Math.round(value * 10) / 10 });
+  const end = Math.min(to, now);
+  let value = seed?.remaining ?? 80;
+  for (let at = end; at >= Math.max(from, now - 14 * DAY); at -= 2 * HOUR) {
+    samples.unshift({ at: iso(at), percent: Math.round(value * 10) / 10 });
+    value += 0.3 + random() * 1.4;
+    // Going back in time past a weekly reset, the account was much lower.
+    if (value > 100) value = 18 + random() * 20;
   }
   return { samples };
 };
@@ -498,14 +501,19 @@ export const usageKeys = (now: number, from: number, to: number, bucket: string,
 };
 
 export const alertEvents = (now: number, zero = false) => ({
+  active: zero
+    ? []
+    : [
+        { key: 'account_failing:claude-frank', kind: 'account_failing', provider: 'claude', account: 'claude-frank', message: 'Frank is failing: session token was revoked.', since: iso(now - 26 * 60_000) },
+        { key: 'pool_empty:codex', kind: 'pool_empty_soon', provider: 'codex', message: 'Codex pool empties in about 5 hours at the current burn.', since: iso(now - 40 * 60_000) },
+      ],
   events: zero
     ? []
     : [
-        { at: iso(now - 26 * 60_000), kind: 'account_failing', provider: 'claude', account: 'claude-frank', message: 'Frank is failing: session token was revoked.', active: true },
-        { at: iso(now - 40 * 60_000), kind: 'pool_empty_soon', provider: 'codex', account: '', message: 'Codex pool empties in about 5 hours at the current burn.', active: true },
-        { at: iso(now - 5 * HOUR), kind: 'account_low', provider: 'claude', account: 'claude-frank', message: 'Frank dropped below 10% weekly quota.', active: false },
-        { at: iso(now - 26 * HOUR), kind: 'reset', provider: 'codex', account: 'codex-grace', message: 'Grace reset: +100%.', active: false },
-        { at: iso(now - 50 * HOUR), kind: 'test', provider: '', account: '', message: 'Test notification sent to Phone.', active: false },
+        { at: iso(now - 26 * 60_000), kind: 'account_failing', provider: 'claude', account: 'claude-frank', message: 'Frank is failing: session token was revoked.' },
+        { at: iso(now - 5 * HOUR), kind: 'account_low', provider: 'claude', account: 'claude-frank', message: 'Frank dropped below 10% weekly quota.' },
+        { at: iso(now - 26 * HOUR), kind: 'reset', provider: 'codex', account: 'codex-grace', message: 'Grace reset: +100%.' },
+        { at: iso(now - 50 * HOUR), kind: 'test', provider: '', account: '', message: 'Test notification sent to Phone.' },
       ],
 });
 

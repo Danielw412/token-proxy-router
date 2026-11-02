@@ -9,16 +9,8 @@ import { DAY_MS } from '@/features/quota/chart/chartModel';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useTprResource } from '@/hooks/useTprResource';
 import { tprApi } from '@/services/api/tpr';
+import { countDone, type QuickStartProgress } from './quickStartLogic';
 import styles from './QuickStartPage.module.scss';
-
-export interface QuickStartProgress {
-  accounts: number;
-  exposed: boolean;
-  connected: boolean;
-}
-
-export const countDone = (progress: QuickStartProgress): number =>
-  [progress.accounts > 0, progress.exposed, progress.connected].filter(Boolean).length;
 
 export function QuickStartPage() {
   const { t } = useTranslation();

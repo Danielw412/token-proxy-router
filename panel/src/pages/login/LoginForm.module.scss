@@ -327,3 +327,14 @@ $field-radius: 8px;
     animation: fieldFade 200ms ease;
   }
 }
+
+.submitQuiet {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover:not(:disabled) {
+      background: var(--bg-hover);
+    }
+  }
+}

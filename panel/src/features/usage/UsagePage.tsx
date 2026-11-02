@@ -12,6 +12,7 @@ import {
 } from '@/components/tpr/Ui';
 import { DAY_MS, formatDuration, formatDayTick } from '@/features/quota/chart/chartModel';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useNow } from '@/hooks/useNow';
 import { useTprResource } from '@/hooks/useTprResource';
 import { tprApi, type KeyUsage } from '@/services/api/tpr';
 import { formatCompactNumber } from '@/utils/format';
@@ -22,21 +23,22 @@ type UsageRange = '1d' | '7d' | '30d';
 
 const RANGE_DAYS: Record<UsageRange, number> = { '1d': 1, '7d': 7, '30d': 30 };
 
-export const totalTokens = (key: KeyUsage): number =>
+const totalTokens = (key: KeyUsage): number =>
   key.inputTokens + key.outputTokens + key.cachedTokens;
 
 export function UsagePage() {
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
   const [range, setRange] = useState<UsageRange>('7d');
-  const { from, to, bucket } = useMemo(() => {
-    const end = Date.now();
-    return {
-      from: new Date(end - RANGE_DAYS[range] * DAY_MS).toISOString(),
-      to: new Date(end).toISOString(),
+  const now = useNow();
+  const { from, to, bucket } = useMemo(
+    () => ({
+      from: new Date(now - RANGE_DAYS[range] * DAY_MS).toISOString(),
+      to: new Date(now).toISOString(),
       bucket: range === '1d' ? ('hour' as const) : ('day' as const),
-    };
-  }, [range]);
+    }),
+    [now, range]
+  );
   const { data, loading, error, errorStatus, refresh } = useTprResource(
     () => tprApi.usageKeys({ from, to, bucket }),
     [from, to, bucket],
@@ -57,8 +59,6 @@ export function UsagePage() {
       ),
     [keys]
   );
-  const now = Date.now();
-
   return (
     <Page>
       <PageHeader

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -19,20 +19,16 @@ import {
 } from '@/components/tpr/Ui';
 import { DAY_MS, formatBurn, formatDuration, formatPercentValue, formatSignedPercent, formatWhen, startOfLocalDay } from '@/features/quota/chart/chartModel';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useNow } from '@/hooks/useNow';
 import { useTprResource } from '@/hooks/useTprResource';
-import { tprApi, type AccountHealth, type QuotaPool, type RouterPool } from '@/services/api/tpr';
+import { tprApi, type QuotaPool, type RouterPool } from '@/services/api/tpr';
 import { formatPercent } from '@/utils/format';
 import { ThroughputChart } from './components/ThroughputChart';
 import { useDashboardOverview } from './hooks/useDashboardOverview';
+import { recentFailures } from './overviewLogic';
 import styles from './OverviewPage.module.scss';
 
 const REFRESH_MS = 60_000;
-
-export const recentFailures = (accounts: AccountHealth[], limit = 6): AccountHealth[] =>
-  accounts
-    .filter((account) => account.lastError && account.lastErrorAt)
-    .sort((a, b) => Date.parse(b.lastErrorAt ?? '') - Date.parse(a.lastErrorAt ?? ''))
-    .slice(0, limit);
 
 function PoolTile({
   pool,
@@ -99,13 +95,14 @@ export function OverviewPage() {
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
   const { connected, traffic, refresh: refreshTraffic } = useDashboardOverview();
-  const range = useMemo(() => {
+  const [range] = useState(() => {
     const today = startOfLocalDay(Date.now());
     return {
       from: new Date(today - DAY_MS).toISOString(),
       to: new Date(today + 8 * DAY_MS).toISOString(),
     };
-  }, []);
+  });
+  const tick = useNow();
   const pools = useTprResource(
     () => tprApi.quotaPools({ ...range, burn: '3h', window: 'weekly', future: 'same' }),
     [],
@@ -129,7 +126,7 @@ export function OverviewPage() {
   const accountCount = poolList.reduce((sum, pool) => sum + pool.accounts.length, 0);
   const activeAlerts = (events.data ?? []).filter((event) => event.active);
   const failures = useMemo(() => recentFailures(health.data ?? []), [health.data]);
-  const now = pools.data?.now ? Date.parse(pools.data.now) : Date.now();
+  const now = pools.data?.now ? Date.parse(pools.data.now) : tick;
   const zeroAccounts = !pools.loading && !pools.error && accountCount === 0;
 
   return (

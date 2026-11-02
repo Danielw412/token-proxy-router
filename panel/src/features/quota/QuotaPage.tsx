@@ -415,7 +415,7 @@ export function QuotaPage() {
           onChange={handleTabChange}
           ariaLabel={t('tpr.quota.provider_filter')}
         />
-        {!activeIsOther && otherTabs.length > 0 && (
+        {!activeIsOther && hiddenCount > 0 && (
           <button
             type="button"
             className={styles.moreProviders}

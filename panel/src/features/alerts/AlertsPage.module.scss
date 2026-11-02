@@ -114,6 +114,11 @@
 @media (max-width: $breakpoint-mobile) {
   .channel {
     grid-template-columns: minmax(0, 1fr) auto;
+
+    > button {
+      grid-row: 1;
+      grid-column: 2;
+    }
   }
 
   .channelName,
