@@ -28,11 +28,16 @@ auths/*
 /auths
 !auths/.gitkeep
 
-# Documentation
-docs/*
-!docs/management-api-v8.md
-AGENTS.md
-CLAUDE.md
+# Token Proxy Router build outputs
+/tpr
+/tpr.exe
+/dist/
+panel/node_modules/
+panel/dist/
+internal/tpr/webui/dist/*
+!internal/tpr/webui/dist/.gitkeep
+
+# Agent overrides
 GEMINI.md
 AGENTS.override.md
 
