@@ -32,9 +32,10 @@ jobs:
           scripts/sync-upstream.sh || code=$?
           echo "code=$code" >> "$GITHUB_OUTPUT"
           echo "head=$(git branch --show-current)" >> "$GITHUB_OUTPUT"
-          if [ "$code" = "1" ]; then
-            exit 1
-          fi
+          case "$code" in
+            0|2|3) ;;
+            *) exit "$code" ;;
+          esac
       - name: Open a pull request
         if: steps.sync.outputs.code == '0' && steps.sync.outputs.head != 'main'
         env:
