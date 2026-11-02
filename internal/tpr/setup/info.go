@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	"gopkg.in/yaml.v3"
 )
 
 // ServerInfo is the part of config.yaml that Token Proxy Router features read.
@@ -84,4 +85,22 @@ func PortOpen(port int) bool {
 	}
 	_ = conn.Close()
 	return true
+}
+
+// AuthDirKeyPath returns where a config file keeps auth-dir: the v8 layout nests
+// it under oauth, the legacy layout has it at the top.
+func AuthDirKeyPath(raw []byte) []string {
+	var parsed struct {
+		OAuth struct {
+			AuthDir *string `yaml:"auth-dir"`
+		} `yaml:"oauth"`
+		AuthDir *string `yaml:"auth-dir"`
+	}
+	if yaml.Unmarshal(raw, &parsed) == nil && parsed.OAuth.AuthDir == nil && parsed.AuthDir != nil {
+		return []string{"auth-dir"}
+	}
+	if len(raw) > 0 && parsed.OAuth.AuthDir == nil && !strings.Contains(string(raw), "config-version") {
+		return []string{"auth-dir"}
+	}
+	return []string{"oauth", "auth-dir"}
 }
