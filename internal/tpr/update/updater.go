@@ -507,7 +507,10 @@ func (u *Updater) Apply(ctx context.Context, opts ApplyOptions) (Result, error) 
 	return result, nil
 }
 
-// Rollback restores the previous version.
+// Rollback puts the previous version back. The two versions trade places, so the
+// version being left stays available as the fallback: if the older one no longer
+// starts, for instance because it cannot read the current config, the health check
+// returns to the newer one instead of leaving the service down.
 func (u *Updater) Rollback() (Result, error) {
 	result := Result{From: u.Current}
 	info, ok := LoadPreviousInfo()
@@ -515,29 +518,15 @@ func (u *Updater) Rollback() (Result, error) {
 		return result, errors.New("there is no previous version to go back to")
 	}
 	result.To = info.Version
-	tmp, err := os.CreateTemp(filepath.Dir(u.Target), ".tpr-restore-*")
-	if err != nil {
-		return result, fmt.Errorf("the folder %s is not writable: %w", filepath.Dir(u.Target), err)
-	}
-	tmpName := tmp.Name()
-	_ = tmp.Close()
-	defer func() { _ = os.Remove(tmpName) }()
-	if err := copyFile(PreviousPath(), tmpName); err != nil {
-		return result, fmt.Errorf("prepare the previous version: %w", err)
-	}
-	if err := replaceBinary(tmpName, u.Target, u.RenameAside); err != nil {
+	if err := u.exchangeWithPrevious(u.Current); err != nil {
 		saveProgress(Progress{State: StateFailed, Error: err.Error(), From: u.Current, To: info.Version})
 		return result, fmt.Errorf("restore the previous version: %w", err)
 	}
-	// The copy has done its job. Keeping it would offer a "rollback" to the
-	// version now running.
-	_ = os.Remove(PreviousPath())
-	_ = os.Remove(previousInfoPath())
 	if !service.SupervisorRunning() {
 		saveProgress(Progress{State: StateIdle, From: u.Current, To: info.Version, Message: "rolled back"})
 		return result, nil
 	}
-	if err := savePending(Pending{Target: u.Target, From: u.Current, To: info.Version, Rollback: true}); err != nil {
+	if err := savePending(Pending{Target: u.Target, Previous: PreviousPath(), From: u.Current, To: info.Version, Rollback: true}); err != nil {
 		return result, fmt.Errorf("record the rollback: %w", err)
 	}
 	saveProgress(Progress{State: StateRestarting, From: u.Current, To: info.Version})
@@ -547,6 +536,21 @@ func (u *Updater) Rollback() (Result, error) {
 	}
 	result.Restarting = true
 	return result, nil
+}
+
+// exchangeWithPrevious swaps the target and the rollback copy.
+func (u *Updater) exchangeWithPrevious(currentVersion string) error {
+	restore, err := os.CreateTemp(filepath.Dir(u.Target), ".tpr-restore-*")
+	if err != nil {
+		return fmt.Errorf("the folder %s is not writable: %w", filepath.Dir(u.Target), err)
+	}
+	restoreName := restore.Name()
+	_ = restore.Close()
+	defer func() { _ = os.Remove(restoreName) }()
+	if err := copyFile(PreviousPath(), restoreName); err != nil {
+		return err
+	}
+	return u.Swap(restoreName, currentVersion)
 }
 
 func healthTimeout() time.Duration {
@@ -568,20 +572,25 @@ func PendingCheck() *service.PendingCheck {
 	return &service.PendingCheck{
 		Timeout: healthTimeout(),
 		OnHealthy: func() {
-			clearPending()
+			// The result goes first: waiters treat the marker's removal as "finished".
 			saveProgress(Progress{State: StateIdle, From: pending.From, To: pending.To, Message: "updated"})
+			clearPending()
 		},
 		OnFailed: func(reason string) { autoRollback(*pending, reason) },
 	}
 }
 
 func autoRollback(pending Pending, reason string) {
-	clearPending()
-	if pending.Rollback || pending.Previous == "" {
-		saveProgress(Progress{State: StateFailed, Error: "the restored version failed too: " + reason, From: pending.From, To: pending.To})
+	// The result goes first: waiters treat the marker's removal as "finished".
+	defer clearPending()
+	if pending.Previous == "" {
+		saveProgress(Progress{State: StateFailed, Error: "the new version failed and there is nothing to return to: " + reason, From: pending.From, To: pending.To})
 		return
 	}
 	message := fmt.Sprintf("%s failed its health check and was rolled back to %s: %s", pending.To, pending.From, reason)
+	if pending.Rollback {
+		message = fmt.Sprintf("%s failed its health check, so the service stayed on %s: %s", pending.To, pending.From, reason)
+	}
 	tmp, err := os.CreateTemp(filepath.Dir(pending.Target), ".tpr-restore-*")
 	if err == nil {
 		tmpName := tmp.Name()
@@ -595,5 +604,9 @@ func autoRollback(pending Pending, reason string) {
 		saveProgress(Progress{State: StateFailed, Error: fmt.Sprintf("%s failed its health check and the automatic rollback also failed: %v. The previous version is at %s", pending.To, err, pending.Previous), From: pending.From, To: pending.To})
 		return
 	}
+	// The copy is now identical to what runs, so it is no longer something to go
+	// back to.
+	_ = os.Remove(pending.Previous)
+	_ = os.Remove(previousInfoPath())
 	saveProgress(Progress{State: StateFailed, Error: message, From: pending.From, To: pending.To})
 }

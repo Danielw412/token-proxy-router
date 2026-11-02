@@ -252,7 +252,7 @@ func TestDevBuildNeedsExplicitVersion(t *testing.T) {
 	}
 }
 
-func TestRollbackRestoresThenHasNothingLeft(t *testing.T) {
+func TestRollbackTradesPlacesWithTheCurrentVersion(t *testing.T) {
 	binary := []byte("new binary")
 	releases := &fakeReleases{tag: "v1.2.0", binary: binary, checksums: checksumLine(binary, testAsset)}
 	u := testUpdater(t, "v1.1.0", releases)
@@ -273,17 +273,82 @@ func TestRollbackRestoresThenHasNothingLeft(t *testing.T) {
 	if readTarget(t, u) != "old binary" {
 		t.Fatal("target not restored")
 	}
-	if _, ok := LoadPreviousInfo(); ok {
-		t.Fatal("rollback copy should be used up")
+	info, ok := LoadPreviousInfo()
+	if !ok || info.Version != "v1.2.0" {
+		t.Fatalf("the version left behind should be the fallback: %+v", info)
 	}
-	info, err := os.Stat(u.Target)
+	previous, err := os.ReadFile(PreviousPath())
+	if err != nil || string(previous) != "new binary" {
+		t.Fatalf("previous = %q err=%v", previous, err)
+	}
+	stat, err := os.Stat(u.Target)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm()&0o100 == 0 && filepath.Separator == '/' {
+	if stat.Mode().Perm()&0o100 == 0 && filepath.Separator == '/' {
 		t.Fatal("restored binary must stay executable")
 	}
 	noTempFilesLeft(t, u)
+}
+
+func TestFailedRollbackReturnsToTheNewerVersion(t *testing.T) {
+	releases := &fakeReleases{tag: "v1.2.0"}
+	u := testUpdater(t, "v1.1.0", releases)
+	if err := os.WriteFile(PreviousPath(), []byte("newer version"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := savePending(Pending{Target: u.Target, Previous: PreviousPath(), From: "v1.2.0", To: "v1.1.0", Rollback: true}); err != nil {
+		t.Fatal(err)
+	}
+	PendingCheck().OnFailed("cannot read the config")
+	if readTarget(t, u) != "newer version" {
+		t.Fatal("should return to the version that worked")
+	}
+	got := LoadProgress()
+	if got.State != StateFailed || !strings.Contains(got.Error, "stayed on v1.2.0") {
+		t.Fatalf("progress = %+v", got)
+	}
+}
+
+func TestPendingClearsOnlyAfterTheResultIsRecorded(t *testing.T) {
+	// `tpr update` waits for the marker to go, then reads the result. Seeing the
+	// marker gone before the result is written made a failed update look healthy.
+	releases := &fakeReleases{tag: "v1.2.0"}
+	u := testUpdater(t, "v1.1.0", releases)
+	if err := os.WriteFile(PreviousPath(), []byte("good"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := savePending(Pending{Target: u.Target, Previous: PreviousPath(), From: "v1.1.0", To: "v1.2.0"}); err != nil {
+		t.Fatal(err)
+	}
+	saveProgress(Progress{State: StateRestarting})
+	stop := make(chan struct{})
+	finished := make(chan Progress, 1)
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			if LoadPending() == nil {
+				finished <- LoadProgress()
+				return
+			}
+		}
+	}()
+	PendingCheck().OnFailed("crashed")
+	close(stop)
+	select {
+	case got := <-finished:
+		if got.State != StateFailed {
+			t.Fatalf("waiter saw %+v after the marker went", got)
+		}
+	default:
+	}
+	if _, ok := LoadPreviousInfo(); ok {
+		t.Fatal("after an automatic rollback there is nothing further to go back to")
+	}
 }
 
 func TestReplaceBinaryRenameAsideLikeWindows(t *testing.T) {
@@ -389,7 +454,7 @@ func TestPendingCheckRollbackFailureIsReported(t *testing.T) {
 	}
 }
 
-func TestFailedRollbackDoesNotLoop(t *testing.T) {
+func TestPendingWithoutFallbackDoesNotLoop(t *testing.T) {
 	releases := &fakeReleases{tag: "v1.2.0"}
 	u := testUpdater(t, "v1.1.0", releases)
 	if err := savePending(Pending{Target: u.Target, From: "v1.2.0", To: "v1.1.0", Rollback: true}); err != nil {
@@ -399,7 +464,7 @@ func TestFailedRollbackDoesNotLoop(t *testing.T) {
 	if LoadPending() != nil {
 		t.Fatal("pending should clear")
 	}
-	if got := LoadProgress(); got.State != StateFailed || !strings.Contains(got.Error, "restored version failed") {
+	if got := LoadProgress(); got.State != StateFailed || !strings.Contains(got.Error, "nothing to return to") {
 		t.Fatalf("progress = %+v", got)
 	}
 }
