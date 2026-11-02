@@ -63,7 +63,7 @@ interface ModelProgress {
   total: number;
 }
 
-export function RoutingPage() {
+export function RoutingPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const fetchConfig = useConfigStore((state) => state.fetchConfig);
@@ -182,7 +182,7 @@ export function RoutingPage() {
     });
   }, [dirty, load, showConfirmation, t]);
 
-  useHeaderRefresh(refresh);
+  useHeaderRefresh(refresh, !embedded);
 
   const { allowNextNavigation } = useUnsavedChangesGuard({
     shouldBlock: dirty,
@@ -381,11 +381,13 @@ export function RoutingPage() {
 
   return (
     <div className={styles.page} ref={revealRef}>
-      <header className={styles.header}>
-        <h1 className={styles.title} data-reveal>
-          {t('routing.title')}
-        </h1>
-      </header>
+      {!embedded && (
+        <header className={styles.header}>
+          <h1 className={styles.title} data-reveal>
+            {t('routing.title')}
+          </h1>
+        </header>
+      )}
 
       {renderBody()}
 

@@ -57,11 +57,11 @@
     "unsaved_changes_message": "У вас есть несохранённые изменения. Если вы уйдёте, они будут потеряны. Выйти?"
   },
   "title": {
-    "login": "Центр управления CLI Proxy API",
-    "abbr": "CPAMC"
+    "login": "Token Proxy Router",
+    "abbr": "Router"
   },
   "splash": {
-    "title": "CLI Proxy API",
+    "title": "Token Proxy Router",
     "subtitle": "Центр управления"
   },
   "login": {

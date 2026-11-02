@@ -12,18 +12,26 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { authFilesApi } from '@/services/api';
 import { Button } from '@/components/ui/Button';
+import { Collapsible } from '@/components/ui/Collapsible';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { IconSearch, IconX } from '@/components/ui/icons';
+import {
+  IconEye,
+  IconEyeOff,
+  IconFilterAll,
+  IconRefreshCw,
+  IconSearch,
+  IconX,
+} from '@/components/ui/icons';
+import { Page, PageHeader, Pills, ProviderIcon, ProviderName, type PillOption } from '@/components/tpr/Ui';
 import { Select } from '@/components/ui/Select';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useNow } from '@/hooks/useNow';
-import { useRevealGroup } from '@/hooks/motion';
-import { useAuthStore, useQuotaStore, useThemeStore } from '@/stores';
+import { tprApi, type QuotaPoolsResponse } from '@/services/api/tpr';
+import { useAuthStore, useNotificationStore, usePrivacyStore, useQuotaStore, useThemeStore } from '@/stores';
 import type { AuthFileItem, ResolvedTheme } from '@/types';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
-import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
-import { QuotaHeader } from './components/QuotaHeader';
+import { PoolsPanel } from './PoolsPanel';
 import { QuotaCard } from './components/QuotaCard';
 import { QuotaTimeline } from './components/QuotaTimeline';
 import {
@@ -53,7 +61,7 @@ import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import { readQuotaUiState, writeQuotaUiState } from './uiState';
 import styles from './QuotaPage.module.scss';
 
-const TAB_IDS: string[] = ['all', ...QUOTA_TAB_ORDER];
+const PRIMARY_TABS: QuotaTabId[] = ['claude', 'codex'];
 const SKELETON_CARD_COUNT = 6;
 
 /**
@@ -77,8 +85,13 @@ export function QuotaPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
-  // 页头 + tabs 的入场级联（标题 → meta → 动作 → tabs，级差 70ms）
-  const revealRef = useRevealGroup<HTMLDivElement>();
+  const showEmails = usePrivacyStore((state) => state.showEmails);
+  const setShowEmails = usePrivacyStore((state) => state.setShowEmails);
+  const showNotification = useNotificationStore((state) => state.showNotification);
+  const [poolsData, setPoolsData] = useState<QuotaPoolsResponse | null>(null);
+  const [poolsRefresh, setPoolsRefresh] = useState(0);
+  const [refreshingAll, setRefreshingAll] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const disableControls = connectionStatus !== 'connected';
 
@@ -114,7 +127,12 @@ export function QuotaPage() {
     }
   }, [connectionStatus, sessionGeneration, t]);
 
-  useHeaderRefresh(loadFiles);
+  const reloadPage = useCallback(async () => {
+    setPoolsRefresh((value) => value + 1);
+    await loadFiles();
+  }, [loadFiles]);
+
+  useHeaderRefresh(reloadPage);
 
   useEffect(() => {
     void loadFiles();
@@ -257,11 +275,25 @@ export function QuotaPage() {
   const prevLoadingRef = useRef(loading);
 
   // 刷新全部：先重取文件列表，待其落定（loading 下降沿）再批量拉当前页额度
-  const handleRefreshAll = useCallback(() => {
+  const handleRefreshAll = useCallback(async () => {
     if (disableControls) return;
     pendingRefreshRef.current = sessionGeneration;
+    setRefreshingAll(true);
+    try {
+      await tprApi.refreshQuota();
+    } catch (err: unknown) {
+      // The server rate limits this; the existing data stays on screen.
+      const status = (err as { status?: number })?.status;
+      if (status !== 404) {
+        const message = err instanceof Error ? err.message : '';
+        showNotification(`${t('notification.refresh_failed')}${message ? `: ${message}` : ''}`, 'warning');
+      }
+    } finally {
+      setRefreshingAll(false);
+    }
+    setPoolsRefresh((value) => value + 1);
     void loadFiles();
-  }, [disableControls, loadFiles, sessionGeneration]);
+  }, [disableControls, loadFiles, sessionGeneration, showNotification, t]);
 
   useEffect(() => {
     const wasLoading = prevLoadingRef.current;
@@ -323,29 +355,92 @@ export function QuotaPage() {
 
   const isEmpty = !loading && filteredEntries.length === 0;
 
+  const poolAccountsLoaded = (poolsData?.pools ?? []).reduce(
+    (sum, pool) => sum + pool.accounts.filter((account) => account.remainingPercent !== null).length,
+    0
+  );
+  const displayLoaded = Math.max(loadedCount, Math.min(poolAccountsLoaded, entries.length));
+
+  const makePill = (id: QuotaTabId): PillOption => ({
+    id,
+    icon: <ProviderIcon provider={id} size={16} />,
+    label: <ProviderName provider={id} />,
+    count: tabCounts[id] ?? 0,
+  });
+  const otherTabs = QUOTA_TAB_ORDER.filter((id) => !PRIMARY_TABS.includes(id));
+  const activeIsOther = otherTabs.includes(tab as (typeof otherTabs)[number]);
+  const pillOptions: PillOption[] = [
+    { id: 'all', icon: <IconFilterAll size={15} />, label: t('auth_files.filter_all'), count: entries.length },
+    ...PRIMARY_TABS.map(makePill),
+    ...(moreOpen || activeIsOther
+      ? otherTabs.filter((id) => (tabCounts[id] ?? 0) > 0 || id === tab).map(makePill)
+      : []),
+  ];
+  const hiddenCount = otherTabs.reduce((sum, id) => sum + (tabCounts[id] ?? 0), 0);
+  const poolProvider = PRIMARY_TABS.includes(tab) || tab === 'all' ? tab : null;
+
   return (
-    <div className={styles.page} ref={revealRef}>
-      <QuotaHeader
-        totalCount={entries.length}
-        loadedCount={loadedCount}
-        attentionCount={attentionCount}
-        refreshing={loading || batchLoading}
-        disableControls={disableControls}
-        onRefreshAll={handleRefreshAll}
+    <Page>
+      <PageHeader
+        title={t('quota_management.title')}
+        meta={
+          <>
+            {t('quota_management.meta_credentials', { count: entries.length })}
+            {' · '}
+            {t('quota_management.meta_loaded', { count: displayLoaded })}
+            {attentionCount > 0 ? ` · ${t('quota_management.meta_attention', { count: attentionCount })}` : ''}
+          </>
+        }
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => setShowEmails(!showEmails)} aria-pressed={showEmails}>
+              {showEmails ? <IconEyeOff size={15} /> : <IconEye size={15} />}
+              {showEmails ? t('tpr.common.hide_emails') : t('tpr.common.show_emails')}
+            </Button>
+            <Button
+              onClick={() => void handleRefreshAll()}
+              disabled={disableControls || loading || batchLoading || refreshingAll}
+            >
+              <IconRefreshCw size={15} />
+              {t('quota_management.refresh_all_credentials')}
+            </Button>
+          </>
+        }
       />
 
-      <section className={styles.workbench}>
-        {/* 提供商导航与搜索工具栏分层，避免不同控件争夺视觉焦点。 */}
-        <div className={styles.tabsRow} data-reveal>
-          <ProviderTabs
-            types={TAB_IDS}
-            counts={tabCounts}
-            active={tab}
-            resolvedTheme={resolvedTheme}
-            onChange={handleTabChange}
-          />
-        </div>
+      <div className={styles.pillRow}>
+        <Pills
+          options={pillOptions}
+          active={tab}
+          onChange={handleTabChange}
+          ariaLabel={t('tpr.quota.provider_filter')}
+        />
+        {!activeIsOther && otherTabs.length > 0 && (
+          <button
+            type="button"
+            className={styles.moreProviders}
+            aria-expanded={moreOpen}
+            onClick={() => setMoreOpen((value) => !value)}
+          >
+            {moreOpen
+              ? t('tpr.common.fewer_providers')
+              : t('tpr.common.more_providers_count', { count: hiddenCount })}
+          </button>
+        )}
+      </div>
 
+      {poolProvider ? (
+        <PoolsPanel provider={poolProvider} refreshToken={poolsRefresh} onLoaded={setPoolsData} />
+      ) : null}
+
+      <Collapsible
+        className={styles.accountsSection}
+        label={t('tpr.quota.accounts_section')}
+        hint={t('tpr.quota.accounts_section_hint')}
+        defaultOpen={!poolProvider}
+        key={poolProvider ? 'pooled' : 'other'}
+      >
+      <section className={styles.workbench}>
         <div className={styles.toolbar}>
           <div className={styles.search}>
             <IconSearch size={16} className={styles.searchIcon} aria-hidden="true" />
@@ -478,6 +573,7 @@ export function QuotaPage() {
           resolvedTheme={resolvedTheme}
         />
       </section>
-    </div>
+      </Collapsible>
+    </Page>
   );
 }

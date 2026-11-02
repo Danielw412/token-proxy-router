@@ -8,6 +8,8 @@ export interface LoginCredentials {
   apiBase: string;
   managementKey: string;
   rememberPassword?: boolean;
+  /** Signed in by Tailscale identity, with no key to send. */
+  identity?: boolean;
 }
 
 // 认证状态

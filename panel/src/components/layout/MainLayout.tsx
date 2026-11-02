@@ -18,24 +18,26 @@ import { PageTransition } from '@/components/common/PageTransition';
 import { MainRoutes } from '@/router/MainRoutes';
 import { authFilesApi, pluginsApi } from '@/services/api';
 import {
+  IconKey,
+  IconPlug,
+  IconSatellite,
   IconSidebarAuthFiles,
   IconSidebarConfig,
   IconSidebarDashboard,
   IconSidebarLogs,
-  IconSidebarOauth,
   IconSidebarPlugins,
-  IconSidebarProviders,
   IconSidebarQuickStart,
   IconSidebarQuota,
   IconSidebarRouting,
-  IconSidebarStore,
   IconSidebarSystem,
+  IconAlertTriangle,
   IconChevronDown,
 } from '@/components/ui/icons';
-import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
+import { BRAND_LOGO, BRAND_NAME } from '@/assets/logoInline';
+import { AlertsBanner } from '@/features/alerts/AlertsBanner';
+import { SetupGate } from '@/features/setup/SetupGate';
 import {
   useAuthStore,
-  useLoginTransitionStore,
   useConfigStore,
   useLanguageStore,
   useNotificationStore,
@@ -57,15 +59,15 @@ import type { Theme } from '@/types';
 const sidebarIcons: Record<string, ReactNode> = {
   dashboard: <IconSidebarDashboard size={18} />,
   quickStart: <IconSidebarQuickStart size={18} />,
-  aiProviders: <IconSidebarProviders size={18} />,
-  authFiles: <IconSidebarAuthFiles size={18} />,
-  oauth: <IconSidebarOauth size={18} />,
-  quota: <IconSidebarQuota size={18} />,
+  accounts: <IconSidebarAuthFiles size={18} />,
   routing: <IconSidebarRouting size={18} />,
-  plugins: <IconSidebarPlugins size={18} />,
-  pluginStore: <IconSidebarStore size={18} />,
-  config: <IconSidebarConfig size={18} />,
+  quota: <IconSidebarQuota size={18} />,
+  usage: <IconKey size={18} />,
+  connect: <IconPlug size={18} />,
+  alerts: <IconAlertTriangle size={18} />,
+  settings: <IconSidebarConfig size={18} />,
   logs: <IconSidebarLogs size={18} />,
+  plugins: <IconSatellite size={18} />,
   system: <IconSidebarSystem size={18} />,
 };
 
@@ -263,47 +265,24 @@ const THEME_CARDS: Array<{
   colors: { bg: string; card: string; border: string; text: string; textMuted: string };
 }> = [
   {
-    key: 'auto',
-    labelKey: 'theme.auto',
-    colors: {
-      bg: 'linear-gradient(135deg, #ffffff 0 50%, #111111 50% 100%)',
-      card: 'linear-gradient(135deg, #ffffff 0 50%, #1a1a1a 50% 100%)',
-      border: '#bdbdbd',
-      text: '#2d2a26',
-      textMuted: 'linear-gradient(135deg, #c9c9c9 0 50%, #5a5a5a 50% 100%)',
-    },
-  },
-  {
-    key: 'white',
-    labelKey: 'theme.white',
-    colors: {
-      bg: '#ffffff',
-      card: '#ffffff',
-      border: '#e5e5e5',
-      text: '#2d2a26',
-      textMuted: '#a29c95',
-    },
+    key: 'dark',
+    labelKey: 'theme.dark',
+    colors: { bg: '#000000', card: '#101010', border: '#2b2b2b', text: '#f4f4f4', textMuted: '#8c8c8c' },
   },
   {
     key: 'light',
     labelKey: 'theme.light',
-    colors: {
-      bg: '#faf9f5',
-      card: '#f0eee8',
-      border: '#e3e1db',
-      text: '#2d2a26',
-      textMuted: '#a29c95',
-    },
+    colors: { bg: '#f6f6f5', card: '#ffffff', border: '#d6d6d1', text: '#141414', textMuted: '#6e6e68' },
   },
   {
-    key: 'dark',
-    labelKey: 'theme.dark',
+    key: 'auto',
+    labelKey: 'theme.auto',
     colors: {
-      bg: '#151412',
-      card: '#1d1b18',
-      border: '#3a3530',
-      text: '#f6f4f1',
-      textMuted: '#9c958d',
+      bg: 'linear-gradient(135deg, #f6f6f5 0 50%, #000000 50% 100%)',
+      card: 'linear-gradient(135deg, #ffffff 0 50%, #101010 50% 100%)',
+      border: '#6e6e68',
+      text: '#6e6e68',
+      textMuted: 'linear-gradient(135deg, #a6a6a0 0 50%, #5f5f5f 50% 100%)',
     },
   },
 ];
@@ -350,9 +329,6 @@ export function MainLayout() {
   const themeMenuRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
 
-  const fullBrandName = 'CLI Proxy API Management Center';
-  const abbrBrandName = t('title.abbr');
-  const arrivingFromLogin = useLoginTransitionStore((state) => state.phase === 'revealing');
   const isLogsPage = location.pathname.startsWith('/logs');
   const isPluginResourcePage = location.pathname.startsWith('/plugin-pages');
   const showSidebarLabels = !sidebarCollapsed || sidebarOpen;
@@ -587,102 +563,50 @@ export function MainLayout() {
 
   const navGroups: SidebarNavGroup[] = [
     {
-      id: 'operate',
+      id: 'start',
       labelKey: 'nav_groups.operate',
       items: [
-        {
-          path: '/',
-          labelKey: 'nav.dashboard',
-          metaKey: 'nav_meta.dashboard',
-          icon: sidebarIcons.dashboard,
-        },
+        { path: '/', labelKey: 'nav.dashboard', icon: sidebarIcons.dashboard },
+        { path: '/quick-start', labelKey: 'nav.quick_start', icon: sidebarIcons.quickStart },
       ],
     },
     {
-      id: 'gateway',
+      id: 'accounts',
       labelKey: 'nav_groups.gateway',
       items: [
         {
-          path: '/ai-providers',
-          labelKey: 'nav.ai_providers',
-          metaKey: 'nav_meta.ai_providers',
-          icon: sidebarIcons.aiProviders,
-        },
-        {
-          path: '/auth-files',
-          labelKey: 'nav.auth_files',
-          metaKey: 'nav_meta.auth_files',
+          path: '/accounts',
+          labelKey: 'tpr.nav.accounts',
           badge: authFilesCount ?? undefined,
           badgeLabel:
             typeof authFilesCount === 'number'
               ? t('sidebar.auth_files_count', { count: authFilesCount })
               : undefined,
-          icon: sidebarIcons.authFiles,
+          icon: sidebarIcons.accounts,
         },
-        {
-          path: '/oauth',
-          labelKey: 'nav.oauth',
-          metaKey: 'nav_meta.oauth',
-          icon: sidebarIcons.oauth,
-        },
-        {
-          path: '/routing',
-          labelKey: 'nav.routing',
-          metaKey: 'nav_meta.routing',
-          icon: sidebarIcons.routing,
-        },
+        { path: '/routing', labelKey: 'nav.routing', icon: sidebarIcons.routing },
+        { path: '/quota', labelKey: 'nav.quota_management', icon: sidebarIcons.quota },
       ],
     },
     {
-      id: 'observe',
+      id: 'clients',
       labelKey: 'nav_groups.observe',
       items: [
-        {
-          path: '/quota',
-          labelKey: 'nav.quota_management',
-          metaKey: 'nav_meta.quota_management',
-          icon: sidebarIcons.quota,
-        },
-        {
-          path: '/logs',
-          labelKey: 'nav.logs',
-          metaKey: 'nav_meta.logs',
-          icon: sidebarIcons.logs,
-        },
+        { path: '/usage', labelKey: 'tpr.nav.usage', icon: sidebarIcons.usage },
+        { path: '/connect', labelKey: 'tpr.nav.connect', icon: sidebarIcons.connect },
       ],
     },
     {
       id: 'control',
       labelKey: 'nav_groups.control',
       items: [
-        {
-          path: '/config',
-          labelKey: 'nav.config_management',
-          metaKey: 'nav_meta.config_management',
-          icon: sidebarIcons.config,
-        },
+        { path: '/alerts', labelKey: 'tpr.nav.alerts', icon: sidebarIcons.alerts },
+        { path: '/settings', labelKey: 'tpr.nav.settings', icon: sidebarIcons.settings },
+        { path: '/logs', labelKey: 'tpr.nav.logs', icon: sidebarIcons.logs },
         ...(supportsPlugin
-          ? [
-              {
-                path: '/plugins',
-                labelKey: 'nav.plugins',
-                metaKey: 'nav_meta.plugins',
-                icon: sidebarIcons.plugins,
-              },
-              {
-                path: '/plugin-store',
-                labelKey: 'nav.plugin_store',
-                metaKey: 'nav_meta.plugin_store',
-                icon: sidebarIcons.pluginStore,
-              },
-            ]
+          ? [{ path: '/plugins', labelKey: 'nav.plugins', icon: sidebarIcons.plugins }]
           : []),
-        {
-          path: '/system',
-          labelKey: 'nav.system_info',
-          metaKey: 'nav_meta.system_info',
-          icon: sidebarIcons.system,
-        },
+        { path: '/system', labelKey: 'tpr.nav.system', icon: sidebarIcons.system },
       ],
     },
     ...(pluginPageNavItems.length > 0
@@ -702,7 +626,7 @@ export function MainLayout() {
       pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
     const normalizedPath = trimmedPath === '/dashboard' ? '/' : trimmedPath;
 
-    const authFilesIndex = navOrder.indexOf('/auth-files');
+    const authFilesIndex = navOrder.indexOf('/accounts');
     if (authFilesIndex !== -1) {
       if (normalizedPath === '/auth-files') return authFilesIndex;
       if (normalizedPath.startsWith('/auth-files/')) {
@@ -971,10 +895,8 @@ export function MainLayout() {
     <div
       className={`app-shell ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''} ${
         isPluginResourcePage ? 'plugin-resource-shell' : ''
-      } ${arrivingFromLogin ? 'app-shell--arriving' : ''}`}
+      }`}
     >
-      <div className="top-gradient-blur" aria-hidden="true" />
-
       <header className="main-header" ref={headerRef}>
         <button
           type="button"
@@ -1148,12 +1070,11 @@ export function MainLayout() {
           className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}
         >
           <div className="sidebar-header">
-            <div className="sidebar-brand" title={fullBrandName}>
-              <img src={INLINE_LOGO_JPEG} alt="CPAMC logo" className="sidebar-brand-logo" />
+            <div className="sidebar-brand" title={BRAND_NAME}>
+              <img src={BRAND_LOGO} alt="" className="sidebar-brand-logo" />
               {showSidebarLabels && (
                 <span className="sidebar-brand-text">
-                  <span className="sidebar-brand-title">{abbrBrandName}</span>
-                  <span className="sidebar-brand-subtitle">{t('sidebar.subtitle')}</span>
+                  <span className="sidebar-brand-title">{BRAND_NAME}</span>
                 </span>
               )}
             </div>
@@ -1162,10 +1083,8 @@ export function MainLayout() {
           <div className="nav-section">
             {navGroups.map((group, idx) => (
               <div className="nav-group" key={group.id}>
-                {showSidebarLabels ? (
-                  <div className="nav-group-label">{t(group.labelKey)}</div>
-                ) : (
-                  idx > 0 && <div className="nav-group-divider" aria-hidden="true" />
+                {!showSidebarLabels && idx > 0 && (
+                  <div className="nav-group-divider" aria-hidden="true" />
                 )}
                 {group.items.map((item) => renderNavItem(item))}
               </div>
@@ -1199,6 +1118,8 @@ export function MainLayout() {
               isPluginResourcePage ? ' main-content-plugin-resource' : ''
             }`}
           >
+            {!isPluginResourcePage && !isLogsPage && <AlertsBanner />}
+            <SetupGate />
             <PageTransition
               render={(location) => <MainRoutes location={location} />}
               getRouteOrder={getRouteOrder}

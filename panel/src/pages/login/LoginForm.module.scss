@@ -1,47 +1,10 @@
-$field-height: 44px;
-$field-radius: 10px;
-
-@keyframes fieldRise {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 8px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes fieldFade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
+$field-height: 38px;
+$field-radius: 8px;
 
 .form {
   display: flex;
   flex-direction: column;
   gap: 20px;
-
-  > [data-stagger] {
-    animation: fieldRise 420ms var(--ease-out-strong) both;
-  }
-
-  @for $i from 1 through 4 {
-    > [data-stagger]:nth-child(#{$i}) {
-      animation-delay: #{180 + $i * 50}ms;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    > [data-stagger] {
-      animation-name: fieldFade;
-      animation-duration: 200ms;
-    }
-  }
 }
 
 .field {
@@ -87,7 +50,7 @@ $field-radius: 10px;
 
   &:focus-visible {
     opacity: 1;
-    outline: 2px solid var(--login-outline);
+    outline: 2px solid var(--focus-ring);
     outline-offset: 3px;
   }
   &:disabled {
@@ -103,7 +66,7 @@ $field-radius: 10px;
   padding: 0 14px;
   border-radius: $field-radius;
   border: 1px solid var(--border-color);
-  background: var(--login-field-bg);
+  background: var(--bg-primary);
   color: var(--text-primary);
   font-size: 14px;
 }
@@ -126,13 +89,12 @@ $field-radius: 10px;
 
   &:focus {
     outline: none;
-    border-color: var(--login-focus-border);
-    background: var(--login-field-bg-focus);
-    box-shadow: 0 0 0 4px var(--login-focus-ring);
-  }
+    border-color: var(--border-hover);
+    background: var(--bg-primary);
+      }
 
   &[aria-invalid='true'] {
-    border-color: color-mix(in srgb, var(--login-error) 55%, transparent);
+    border-color: color-mix(in srgb, var(--error-color) 55%, transparent);
   }
 }
 
@@ -140,7 +102,7 @@ $field-radius: 10px;
   display: flex;
   align-items: center;
   border-color: transparent;
-  background: var(--login-readout-bg);
+  background: var(--bg-tertiary);
   color: var(--text-secondary);
 }
 
@@ -187,7 +149,7 @@ $field-radius: 10px;
   @media (hover: hover) and (pointer: fine) {
     &:hover {
       color: var(--text-primary);
-      background: var(--login-hover-bg);
+      background: var(--bg-tertiary);
     }
   }
 
@@ -197,7 +159,7 @@ $field-radius: 10px;
 
   &:focus-visible {
     color: var(--text-primary);
-    outline: 2px solid var(--login-outline);
+    outline: 2px solid var(--focus-ring);
     outline-offset: 0;
   }
 }
@@ -205,6 +167,14 @@ $field-radius: 10px;
 .options {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fieldHint {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
 }
 
 .checkboxLabel {
@@ -229,8 +199,8 @@ $field-radius: 10px;
   gap: 8px;
   border: 0;
   border-radius: $field-radius;
-  background: var(--login-submit-bg);
-  color: var(--login-submit-fg);
+  background: var(--primary-color);
+  color: var(--primary-contrast);
   font: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -243,7 +213,7 @@ $field-radius: 10px;
 
   @media (hover: hover) and (pointer: fine) {
     &:hover:not(:disabled) {
-      background: var(--login-submit-hover);
+      background: var(--primary-hover);
     }
   }
 
@@ -252,7 +222,7 @@ $field-radius: 10px;
   }
 
   &:focus-visible {
-    outline: 2px solid var(--login-outline);
+    outline: 2px solid var(--focus-ring);
     outline-offset: 3px;
   }
 
@@ -337,7 +307,7 @@ $field-radius: 10px;
   margin: 0;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--login-error);
+  color: var(--error-color);
   animation: errorIn 200ms var(--ease-out-strong);
 
   svg {

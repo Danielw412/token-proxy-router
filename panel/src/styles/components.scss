@@ -1,19 +1,33 @@
-@use 'sass:color';
 @use './variables.scss' as *;
 
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: $spacing-sm;
+  gap: 6px;
   border: 1px solid transparent;
   border-radius: $radius-md;
-  padding: 10px 14px;
-  font-weight: 600;
+  padding: 7px 13px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
   cursor: pointer;
-  transition: all $transition-fast;
-  background-color: var(--bg-secondary);
+  transition:
+    background-color $transition-fast,
+    border-color $transition-fast,
+    color $transition-fast;
+  background-color: var(--bg-tertiary);
   color: var(--text-primary);
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
 
   &.btn-primary {
     background-color: var(--primary-color);
@@ -49,12 +63,12 @@
   }
 
   &.btn-danger {
-    background-color: $error-color;
-    border-color: $error-color;
-    color: #fff;
+    background-color: var(--destructive-10);
+    border-color: var(--destructive-30);
+    color: var(--error-color);
 
     &:hover {
-      background-color: color.adjust($error-color, $lightness: -5%);
+      background-color: var(--destructive-30);
     }
   }
 
@@ -63,8 +77,8 @@
   }
 
   &.btn-sm {
-    padding: 8px 10px;
-    font-size: 14px;
+    padding: 5px 10px;
+    font-size: 12.5px;
   }
 
   &:disabled {
@@ -73,33 +87,23 @@
   }
 }
 
-[data-theme='dark'] {
-  .btn {
-    color: #fff;
-  }
-
-  .btn.btn-secondary,
-  .btn.btn-ghost {
-    color: #fff;
-  }
-}
-
 .input,
 textarea {
   width: 100%;
   border: 1px solid var(--border-color);
   border-radius: $radius-md;
-  padding: 10px 12px;
-  background-color: var(--bg-secondary);
+  padding: 8px 11px;
+  font-size: 13px;
+  background-color: var(--bg-quinary);
   color: var(--text-primary);
-  transition:
-    border-color $transition-fast,
-    box-shadow $transition-fast;
+  transition: border-color $transition-fast;
+
+  &::placeholder {
+    color: var(--text-tertiary);
+  }
 
   &:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba($primary-color, 0.18);
+    border-color: var(--border-hover);
   }
 }
 
@@ -110,7 +114,8 @@ textarea {
   margin-bottom: $spacing-md;
 
   label {
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 500;
     color: var(--text-primary);
   }
 
@@ -124,8 +129,7 @@ textarea {
   background-color: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: $radius-lg;
-  box-shadow: var(--shadow);
-  padding: $spacing-lg;
+  padding: 20px;
 }
 
 .card-header {
@@ -143,8 +147,8 @@ textarea {
   .title {
     flex: 1 1 auto;
     min-width: 0;
-    font-size: 18px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 600;
     color: var(--text-primary);
   }
 }
@@ -225,7 +229,7 @@ textarea {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -233,11 +237,11 @@ textarea {
   padding: $spacing-lg;
 
   &.modal-overlay-entering {
-    animation: modal-overlay-fade-in 0.25s ease-out forwards;
+    animation: modal-overlay-fade-in 0.14s ease-out forwards;
   }
 
   &.modal-overlay-closing {
-    animation: modal-overlay-fade-out 0.35s ease-in forwards;
+    animation: modal-overlay-fade-out 0.14s ease-in forwards;
   }
 }
 
@@ -274,18 +278,18 @@ textarea {
   transform-origin: calc(100% - 28px) 28px;
 
   &.modal-entering {
-    animation: modal-scale-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation: modal-scale-in 0.14s ease-out forwards;
   }
 
   &.modal-closing {
-    animation: modal-collapse-to-close 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: modal-collapse-to-close 0.12s ease-in forwards;
   }
 }
 
 @keyframes modal-scale-in {
   from {
     opacity: 0;
-    transform: scale(0.85) translateY(20px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -300,7 +304,7 @@ textarea {
   }
   100% {
     opacity: 0;
-    transform: scale(0);
+    transform: translateY(4px);
   }
 }
 
@@ -311,11 +315,11 @@ textarea {
   width: 32px;
   height: 32px;
   padding: 0;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: transparent;
+  border: 1px solid transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  border-radius: $radius-full;
+  border-radius: $radius-md;
   display: inline-flex;
   align-items: center;
   justify-content: center;

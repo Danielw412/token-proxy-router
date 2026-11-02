@@ -57,11 +57,11 @@
     "unsaved_changes_message": "Kaydedilmemiş Değişiklikler Var. Şimdi Ayrılırsan Bunlar Silinir. Ayrılmak İstiyor Musun?"
   },
   "title": {
-    "login": "CLIProxyAPI Yönetim Merkezi",
-    "abbr": "CPAMC"
+    "login": "Token Proxy Router",
+    "abbr": "Router"
   },
   "splash": {
-    "title": "CLIProxyAPI",
+    "title": "Token Proxy Router",
     "subtitle": "Yönetim Merkezi"
   },
   "login": {

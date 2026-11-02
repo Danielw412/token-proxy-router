@@ -250,6 +250,13 @@ class ApiClient {
   }
 
   /**
+   * POST and get the raw response (for streamed downloads)
+   */
+  async postRaw(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse> {
+    return this.instance.post(url, data, config);
+  }
+
+  /**
    * Send FormData
    */
   async postForm<T = unknown>(

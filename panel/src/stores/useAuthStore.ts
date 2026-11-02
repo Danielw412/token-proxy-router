@@ -15,6 +15,7 @@ import { useConfigStore } from './useConfigStore';
 import { useModelsStore } from './useModelsStore';
 import { useQuotaStore } from './useQuotaStore';
 import { detectApiBaseFromLocation, normalizeApiBase } from '@/utils/connection';
+import { clearAuthSession, readAuthSession, writeAuthSession } from './authSession';
 
 interface AuthStoreState extends AuthState {
   connectionStatus: ConnectionStatus;
@@ -49,7 +50,7 @@ export const useAuthStore = create<AuthStoreState>()(
       isAuthenticated: false,
       apiBase: '',
       managementKey: '',
-      rememberPassword: false,
+      rememberPassword: true,
       serverVersion: null,
       serverBuildDate: null,
       supportsPlugin: false,
@@ -61,14 +62,15 @@ export const useAuthStore = create<AuthStoreState>()(
 
         restoreSessionPromise = (async () => {
           const wasLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+          const session = readAuthSession();
           const legacyBase =
             obfuscatedStorage.getItem<string>('apiBase') ||
             obfuscatedStorage.getItem<string>('apiUrl', { encrypt: true });
           const { apiBase, managementKey, rememberPassword } = get();
           const resolvedBase = normalizeApiBase(
-            apiBase || legacyBase || detectApiBaseFromLocation()
+            session?.apiBase || apiBase || legacyBase || detectApiBaseFromLocation()
           );
-          const resolvedKey = managementKey || '';
+          const resolvedKey = session?.managementKey || managementKey || '';
           const resolvedRememberPassword = rememberPassword;
 
           set({
@@ -78,12 +80,13 @@ export const useAuthStore = create<AuthStoreState>()(
           });
           apiClient.setConfig({ apiBase: resolvedBase, managementKey: resolvedKey });
 
-          if (shouldAttemptAutoLogin(wasLoggedIn, resolvedBase, resolvedKey)) {
+          if (session || shouldAttemptAutoLogin(wasLoggedIn, resolvedBase, resolvedKey)) {
             try {
               await get().login({
                 apiBase: resolvedBase,
                 managementKey: resolvedKey,
                 rememberPassword: resolvedRememberPassword,
+                identity: session?.identity,
               });
               return true;
             } catch (error) {
@@ -100,6 +103,7 @@ export const useAuthStore = create<AuthStoreState>()(
 
       hasRestorableSession: () => {
         if (typeof localStorage === 'undefined') return false;
+        if (readAuthSession()) return true;
         const wasLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
         const { apiBase, managementKey } = get();
         // 与 restoreSession 相同：地址总能回退到当前访问地址，因此只需地址非空的占位判断
@@ -111,7 +115,10 @@ export const useAuthStore = create<AuthStoreState>()(
       login: async (credentials) => {
         const apiBase = normalizeApiBase(credentials.apiBase);
         const managementKey = credentials.managementKey.trim();
-        const rememberPassword = credentials.rememberPassword ?? get().rememberPassword ?? false;
+        const identity = credentials.identity === true;
+        // Identity sign-in has no key to remember.
+        const rememberPassword =
+          !identity && (credentials.rememberPassword ?? get().rememberPassword ?? false);
 
         try {
           set({
@@ -154,6 +161,7 @@ export const useAuthStore = create<AuthStoreState>()(
             rememberPassword,
             connectionStatus: 'connected',
           });
+          writeAuthSession({ apiBase, managementKey, identity });
           if (rememberPassword) {
             localStorage.setItem('isLoggedIn', 'true');
           } else {
@@ -168,6 +176,7 @@ export const useAuthStore = create<AuthStoreState>()(
       // 登出
       logout: () => {
         restoreSessionPromise = null;
+        clearAuthSession();
         apiClient.setConfig({ apiBase: '', managementKey: '' });
         useConfigStore.getState().clearCache();
         useModelsStore.getState().clearCache();

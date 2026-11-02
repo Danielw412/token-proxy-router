@@ -1,13 +1,13 @@
 @use './variables.scss' as *;
 
 :root {
-  --header-height: 80px;
-  --shell-gutter: 24px;
-  --sidebar-panel-width: 216px;
+  --header-height: 64px;
+  --shell-gutter: 20px;
+  --sidebar-panel-width: 228px;
   --sidebar-collapsed-width: 60px;
   --sidebar-active-width: var(--sidebar-panel-width);
   --sidebar-gap: 0px;
-  --floating-control-size: 38px;
+  --floating-control-size: 32px;
 }
 
 .app-shell {
@@ -35,48 +35,6 @@
     overflow-y: auto;
   }
 
-  &.plugin-resource-shell {
-    .top-gradient-blur {
-      display: none;
-    }
-  }
-}
-
-.top-gradient-blur {
-  position: fixed;
-  top: 0;
-  right: 0;
-  left: var(--sidebar-active-width);
-  z-index: $z-dropdown - 2;
-  height: 141px;
-  pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--bg-secondary) 88%, #0d0c0a) 0%,
-    color-mix(in srgb, var(--bg-secondary) 54%, transparent) 36%,
-    color-mix(in srgb, var(--bg-secondary) 22%, transparent) 66%,
-    transparent 100%
-  );
-  --glass-blur: 22px;
-  backdrop-filter: var(--glass-backdrop-filter);
-  -webkit-backdrop-filter: var(--glass-backdrop-filter);
-  mask-image: linear-gradient(
-    to bottom,
-    #000 0%,
-    rgb(0 0 0 / 0.9) 24%,
-    rgb(0 0 0 / 0.58) 48%,
-    rgb(0 0 0 / 0.22) 72%,
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    #000 0%,
-    rgb(0 0 0 / 0.9) 24%,
-    rgb(0 0 0 / 0.58) 48%,
-    rgb(0 0 0 / 0.22) 72%,
-    transparent 100%
-  );
-  transition: left $transition-normal;
 }
 
 .main-header {
@@ -94,16 +52,13 @@
     position: fixed;
     top: 50%;
     left: calc(var(--sidebar-active-width) - 12px);
-    width: 24px;
-    height: 52px;
+    width: 20px;
+    height: 44px;
     padding: 0;
-    border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
-    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
     background: var(--bg-primary);
-    color: color-mix(in srgb, var(--text-secondary) 88%, transparent);
-    box-shadow:
-      4px 0 14px rgb(0 0 0 / 0.18),
-      inset 0 1px 0 rgb(255 255 255 / 0.03);
+    color: var(--text-tertiary);
     cursor: pointer;
     pointer-events: auto;
     display: inline-flex;
@@ -123,22 +78,11 @@
     }
 
     &:hover {
-      background: color-mix(in srgb, var(--bg-primary) 90%, var(--text-primary) 10%);
-      border-color: color-mix(in srgb, var(--border-hover) 86%, transparent);
+      background: var(--bg-tertiary);
+      border-color: var(--border-hover);
       color: var(--text-primary);
-      transform: translateY(-50%) translateX(2px);
     }
 
-    &:active {
-      transform: translateY(-50%) translateX(0);
-    }
-
-    &:focus-visible {
-      outline: none;
-      box-shadow:
-        0 0 0 2px color-mix(in srgb, var(--primary-color) 24%, transparent),
-        4px 0 14px rgb(0 0 0 / 0.18);
-    }
   }
 
   .mobile-sidebar-actions,
@@ -147,18 +91,8 @@
     top: var(--shell-gutter);
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 6px;
-    border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
-    border-radius: 16px;
-    background: color-mix(in srgb, var(--bg-primary) 68%, transparent);
+    gap: 6px;
     color: var(--text-secondary);
-    box-shadow:
-      0 18px 44px rgb(0 0 0 / 0.17),
-      inset 0 1px 0 rgb(255 255 255 / 0.04);
-    --glass-blur: 16px;
-    backdrop-filter: var(--glass-backdrop-filter);
-    -webkit-backdrop-filter: var(--glass-backdrop-filter);
     pointer-events: auto;
   }
 
@@ -177,7 +111,7 @@
     height: var(--floating-control-size);
     min-width: var(--floating-control-size);
     padding: 0;
-    border-radius: 11px;
+    border-radius: 8px;
     background: transparent;
     color: var(--text-secondary);
     border-color: transparent;
@@ -195,10 +129,6 @@
       border-color: transparent;
     }
 
-    &:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 26%, transparent);
-    }
   }
 
   .mobile-menu-btn {
@@ -219,12 +149,9 @@
     top: calc(100% + 12px);
     right: 0;
     z-index: $z-dropdown + 2;
-    border: 1px solid color-mix(in srgb, var(--border-color) 74%, transparent);
-    background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
-    box-shadow: 0 20px 48px rgb(0 0 0 / 0.22);
-    --glass-blur: 16px;
-    backdrop-filter: var(--glass-backdrop-filter);
-    -webkit-backdrop-filter: var(--glass-backdrop-filter);
+    border: 1px solid var(--border-primary);
+    background: var(--floating-surface);
+    box-shadow: var(--floating-shadow);
   }
 
   .language-menu-popover {
@@ -243,7 +170,7 @@
     color: var(--text-primary);
     cursor: pointer;
     padding: 8px 10px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     display: flex;
     align-items: center;
@@ -397,15 +324,14 @@
   z-index: $z-dropdown - 1;
   width: var(--sidebar-panel-width);
   height: 100vh;
-  padding: 14px 10px;
+  padding: 18px 12px;
   display: flex;
   flex-direction: column;
-  gap: $spacing-sm;
+  gap: 14px;
   flex-shrink: 0;
   overflow-y: auto;
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   border: 0;
-  border-right: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
   border-radius: 0;
   box-shadow: none;
   scrollbar-width: none;
@@ -482,16 +408,14 @@
     align-items: center;
     gap: 8px;
     min-height: 36px;
-    padding: 2px 2px 10px;
-    margin-bottom: 2px;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+    padding: 2px 2px 4px;
     flex-shrink: 0;
   }
 
   .sidebar-brand {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 9px;
     min-width: 0;
     flex: 1;
     padding: 0 6px;
@@ -499,8 +423,8 @@
   }
 
   .sidebar-brand-logo {
-    width: 30px;
-    height: 30px;
+    width: 26px;
+    height: 26px;
     object-fit: contain;
     border-radius: 7px;
     box-shadow: none;
@@ -518,9 +442,9 @@
     min-width: 0;
     overflow: hidden;
     color: var(--text-primary);
-    font-size: 15px;
-    font-weight: 800;
-    letter-spacing: 0;
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
     white-space: nowrap;
   }
 
@@ -537,14 +461,14 @@
   .nav-section {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 18px;
     flex: 1;
   }
 
   .nav-group {
     display: flex;
     flex-direction: column;
-    gap: $spacing-xs;
+    gap: 2px;
   }
 
   .nav-group-label {
@@ -599,12 +523,12 @@
   }
 
   .nav-item {
-    padding: 6px 10px;
+    padding: 7px 10px;
     border-radius: 9px;
-    border: 1px solid transparent;
-    color: var(--text-primary);
-    font-size: 13px;
-    font-weight: 600;
+    border: 0;
+    color: var(--text-secondary);
+    font-size: 13.5px;
+    font-weight: 500;
     text-decoration: none;
     display: flex;
     align-items: center;
@@ -623,7 +547,7 @@
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      color: color-mix(in srgb, var(--text-primary) 58%, transparent);
+      color: var(--text-tertiary);
       transition: color $transition-fast;
 
       svg {
@@ -665,10 +589,10 @@
       justify-content: center;
       flex-shrink: 0;
       border-radius: $radius-full;
-      background: color-mix(in srgb, var(--text-primary) 9%, transparent);
-      color: var(--text-primary);
-      font-size: 10.5px;
-      font-weight: 700;
+      background: transparent;
+      color: var(--text-tertiary);
+      font-size: 12px;
+      font-weight: 400;
       line-height: 1;
     }
 
@@ -685,23 +609,19 @@
     }
 
     &:hover {
-      background: color-mix(in srgb, var(--text-primary) 7%, transparent);
-      border-color: color-mix(in srgb, var(--border-color) 58%, transparent);
-      transform: translateX(1px);
+      color: var(--text-primary);
 
       .nav-icon {
-        color: color-mix(in srgb, var(--text-primary) 82%, transparent);
+        color: var(--text-secondary);
       }
     }
 
     &.active {
-      background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+      background: var(--bg-tertiary);
       color: var(--text-primary);
-      border-color: color-mix(in srgb, var(--border-hover) 70%, transparent);
-      box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
 
       .nav-icon {
-        color: var(--primary-active);
+        color: var(--text-primary);
       }
     }
 
@@ -743,9 +663,10 @@
   padding: 9px 12px;
   overflow: hidden;
   border-radius: 10px;
-  background: #24211c;
-  color: #f6f4f1;
-  box-shadow: 0 14px 36px rgb(0 0 0 / 0.32);
+  border: 1px solid var(--border-primary);
+  background: var(--floating-surface);
+  color: var(--text-primary);
+  box-shadow: var(--floating-shadow);
   pointer-events: none;
   animation: nav-tooltip-in $transition-fast ease-out;
   transition: left $transition-normal;
@@ -763,7 +684,7 @@
     max-width: 100%;
     overflow-wrap: anywhere;
     font-size: 11.5px;
-    color: rgb(246 244 241 / 0.6);
+    color: var(--text-secondary);
     white-space: normal;
   }
 }
@@ -807,16 +728,16 @@
 .main-content {
   flex: 1 0 auto;
   min-height: 100%;
-  padding: 70px clamp(20px, 3vw, 48px) 40px;
+  padding: 58px clamp(16px, 2.2vw, 32px) 40px clamp(8px, 1.2vw, 16px);
   display: flex;
   flex-direction: column;
-  gap: $spacing-lg;
+  gap: 16px;
   overflow-x: hidden;
 
   &.main-content-logs {
     flex: 1 1 auto;
     min-height: 0;
-    padding: 70px clamp(20px, 3vw, 48px) 24px;
+    padding: 58px clamp(16px, 2.2vw, 32px) 24px clamp(8px, 1.2vw, 16px);
     overflow: hidden;
   }
 
@@ -845,10 +766,6 @@
     --floating-control-size: 36px;
   }
 
-  .top-gradient-blur {
-    height: 114px;
-  }
-
   .nav-tooltip {
     display: none;
   }
@@ -864,18 +781,14 @@
       max-width: calc(
         100vw - var(--shell-gutter) - var(--shell-gutter) - var(--floating-control-size) - 14px
       );
-      padding: 5px;
       gap: 2px;
-      border-radius: 14px;
     }
 
     .mobile-sidebar-actions {
       display: inline-flex;
       top: var(--shell-gutter);
       left: var(--shell-gutter);
-      padding: 5px;
       gap: 2px;
-      border-radius: 14px;
     }
 
     .mobile-menu-btn {
@@ -883,18 +796,17 @@
     }
 
     .language-menu-popover {
-      right: auto;
-      left: 0;
+      right: 0;
+      left: auto;
     }
 
     .theme-menu-popover {
       right: 0;
       left: auto;
       transform: none;
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      display: flex;
       justify-content: stretch;
-      width: min(188px, calc(100vw - 16px));
+      width: min(280px, calc(100vw - 16px));
     }
 
     .theme-card {
@@ -944,7 +856,7 @@
     transform: translateX(calc(-100% - 24px));
     background: var(--bg-primary);
     border: 0;
-    border-right: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
+    border-right: 1px solid var(--border-color);
     border-radius: 0;
     box-shadow: none;
 
@@ -1000,7 +912,7 @@
   }
 
   .main-content {
-    padding: calc(var(--header-height) + 16px) $spacing-md $spacing-lg;
+    padding: calc(var(--header-height) + 4px) 12px $spacing-lg;
 
     &.main-content-plugin-resource {
       min-height: 0;
@@ -1013,56 +925,6 @@
       min-height: 0;
       padding: calc(var(--header-height) + 8px) 8px max(8px, env(safe-area-inset-bottom));
       overflow: hidden;
-    }
-  }
-}
-
-// 仅桌面端：移动端侧栏本身依赖 transform 收起，不叠加入场。
-// 总时长不超过揭幕时长（640ms），揭幕结束时类名撤销不会跳变。
-@keyframes shellSidebarIn {
-  from {
-    opacity: 0;
-    transform: translate3d(-16px, 0, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes shellChromeIn {
-  from {
-    opacity: 0;
-    transform: translate3d(0, -6px, 0) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
-@keyframes shellFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@media (min-width: #{$breakpoint-mobile + 1}) and (prefers-reduced-motion: no-preference) {
-  .app-shell--arriving {
-    .sidebar {
-      animation: shellSidebarIn 560ms var(--ease-out-strong) 60ms both;
-    }
-
-    .main-header .header-actions {
-      transform-origin: top right;
-      animation: shellChromeIn 460ms var(--ease-out-strong) 160ms both;
-    }
-
-    .main-header .sidebar-toggle-floating {
-      animation: shellFadeIn 360ms ease 260ms both;
     }
   }
 }

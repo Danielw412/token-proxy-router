@@ -218,3 +218,47 @@
     gap: 16px;
   }
 }
+
+/* ---------- Pills and the collapsed accounts section ---------- */
+
+.pillRow {
+  display: flex;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+
+  > :first-child {
+    min-width: 0;
+  }
+}
+
+.moreProviders {
+  appearance: none;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+}
+
+.accountsSection {
+  border-radius: 12px;
+
+  > summary {
+    padding: 12px 18px;
+    font-size: 14px;
+  }
+
+  > div {
+    padding: 4px 18px 18px;
+    max-width: none;
+  }
+}

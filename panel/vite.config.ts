@@ -4,6 +4,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 import path from 'path';
 import { execSync } from 'child_process';
 import fs from 'fs';
+import { mockApiPlugin } from './dev/mockApi';
 
 // Get version from environment, git tag, or package.json
 function getVersion(): string {
@@ -39,6 +40,8 @@ function getVersion(): string {
 export default defineConfig({
   plugins: [
     react(),
+    // Dev only (`apply: 'serve'`): never part of the production bundle.
+    mockApiPlugin(),
     viteSingleFile({
       removeViteModuleLoader: true
     })

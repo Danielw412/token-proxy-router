@@ -57,11 +57,11 @@
     "unsaved_changes_message": "저장되지 않은 변경 사항이 있습니다. 지금 나가면 변경 사항이 삭제됩니다. 나가시겠습니까?"
   },
   "title": {
-    "login": "CLI Proxy API 관리 센터",
-    "abbr": "CPAMC"
+    "login": "Token Proxy Router",
+    "abbr": "Router"
   },
   "splash": {
-    "title": "CLI Proxy API",
+    "title": "Token Proxy Router",
     "subtitle": "관리 센터"
   },
   "login": {

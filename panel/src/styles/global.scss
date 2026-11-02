@@ -12,9 +12,43 @@
 body {
   background-color: var(--bg-secondary);
   color: var(--text-primary);
-  transition:
-    background-color $transition-normal,
-    color $transition-normal;
+  font-size: 14px;
+  font-feature-settings: 'cv11', 'ss03';
+}
+
+// Visible keyboard focus everywhere, including controls that remove the default outline.
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+select:focus-visible,
+[role='button']:focus-visible,
+[role='tab']:focus-visible,
+[role='switch']:focus-visible,
+[role='menuitemradio']:focus-visible,
+[tabindex]:focus-visible,
+input[type='checkbox']:focus-visible + *,
+input[type='radio']:focus-visible + * {
+  outline: 2px solid var(--focus-ring) !important;
+  outline-offset: 2px;
+}
+
+input:not([type='checkbox']):not([type='radio']):focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--focus-ring) !important;
+  outline-offset: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 html.modal-open,
@@ -33,11 +67,11 @@ body.modal-open .content {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: var(--border-primary);
   border-radius: $radius-full;
 
   &:hover {

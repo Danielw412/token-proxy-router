@@ -1,0 +1,404 @@
+.intro {
+  margin: -4px 0 0;
+  max-width: 760px;
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.skeletons {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.current {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+}
+
+.currentMain {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+
+.currentLabel {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.currentName {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 2px;
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.currentReason {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.currentSide {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  max-width: 340px;
+}
+
+.modeHint {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.accountHead {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) minmax(120px, 1fr) minmax(120px, 1fr) 124px 148px;
+  gap: 18px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+}
+
+.accounts {
+  display: flex;
+  flex-direction: column;
+}
+
+.account {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) minmax(120px, 1fr) minmax(120px, 1fr) 124px 148px;
+  align-items: center;
+  gap: 18px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border-color);
+
+  &:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+}
+
+.accountName {
+  min-width: 0;
+}
+
+.accountTitle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  color: var(--text-primary);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.accountMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+}
+
+.plan {
+  text-transform: capitalize;
+}
+
+.window {
+  min-width: 0;
+}
+
+.windowTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.windowLabel {
+  display: none;
+  color: var(--text-secondary);
+}
+
+.windowReset {
+  margin-top: 3px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.role {
+  min-width: 0;
+}
+
+.accountActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.twoColumn {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-color);
+
+  &:first-of-type {
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  &:last-child {
+    padding-bottom: 0;
+  }
+}
+
+.fieldText {
+  min-width: 0;
+  flex: 1 1 200px;
+}
+
+.fieldLabel {
+  color: var(--text-primary);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.fieldHint {
+  margin-top: 1px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.fieldControl {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.number {
+  width: 70px;
+  padding: 5px 8px;
+}
+
+.selectWide {
+  min-width: 170px;
+}
+
+.quiet {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-color);
+  font-size: 13px;
+
+  &:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+}
+
+.rowMain {
+  min-width: 0;
+  flex: 1 1 auto;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowMeta {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.switchRow {
+  padding: 8px 0;
+  border-top: 1px solid var(--border-color);
+  font-size: 13px;
+
+  &:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+}
+
+.switchTop {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.switchReason {
+  margin-top: 1px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+
+.windowRow {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) minmax(170px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-color);
+  font-size: 13px;
+
+  &:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+}
+
+.windowState {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+
+.windowActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 112px;
+}
+
+.schedule {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.scheduleLabel {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.when {
+  width: auto;
+  padding: 5px 8px;
+}
+
+.advanced {
+  border-radius: 12px;
+
+  > summary {
+    padding: 12px 18px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .accountHead {
+    display: none;
+  }
+
+  .account {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 16px;
+  }
+
+  .accountName {
+    grid-column: 1 / -1;
+  }
+
+  .windowLabel {
+    display: inline;
+  }
+
+  .twoColumn {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .windowRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 12px;
+  }
+
+  .windowState,
+  .rowMeta {
+    grid-column: 1;
+  }
+
+  .windowActions {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    min-width: 0;
+  }
+}
+
+@media (max-width: $breakpoint-mobile) {
+  .currentSide {
+    align-items: flex-start;
+    max-width: none;
+  }
+
+  .modeHint {
+    text-align: left;
+  }
+
+  .accountActions {
+    justify-content: flex-start;
+  }
+}

@@ -22,7 +22,7 @@ interface ModalProps {
   closeDisabled?: boolean;
 }
 
-const CLOSE_ANIMATION_DURATION = 350;
+const CLOSE_ANIMATION_DURATION = 130;
 
 export function Modal({
   open,

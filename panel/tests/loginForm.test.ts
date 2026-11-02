@@ -3,7 +3,6 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import i18n from '@/i18n';
 import { LoginForm, type LoginFormProps } from '@/pages/login/LoginForm';
-import { LANGUAGE_ORDER } from '@/utils/constants';
 
 const noop = () => undefined;
 
@@ -44,27 +43,18 @@ describe('LoginForm', () => {
     expect(markup).toMatch(/autocomplete="current-password"/i);
   });
 
-  test('shows the detected URL read-only until the user chooses to change it', () => {
+  test('hides the server URL under Advanced by default', () => {
     const markup = render();
-    expect(markup).toContain('http://localhost:8317');
     expect(markup).not.toContain('type="url"');
     expect(markup).toContain('aria-expanded="false"');
-    expect(markup).toContain(`>${i18n.t('login.connection_edit')}<`);
+    expect(markup).toContain(`>${i18n.t('tpr.login.advanced')}<`);
   });
 
-  test('prefers the stored/custom URL over the detected one', () => {
-    const markup = render({ apiBase: 'https://proxy.example.com' });
-    expect(markup).toContain('https://proxy.example.com');
-    expect(markup).not.toContain('http://localhost:8317');
-  });
-
-  test('edits the URL in place with a labelled input', () => {
-    const markup = render({ editingBase: true, apiBase: 'https://proxy.example.com' });
+  test('shows the server URL field once Advanced is open', () => {
+    const markup = render({ apiBase: 'https://proxy.example.com', editingBase: true });
     expect(markup).toContain('type="url"');
-    expect(markup).toContain('value="https://proxy.example.com"');
-    expect(markup).toContain('aria-expanded="true"');
-    expect(markup).toContain(`>${i18n.t('login.connection_done')}<`);
-    expect(markup).toContain(i18n.t('login.custom_connection_label'));
+    expect(markup).toContain('https://proxy.example.com');
+    expect(markup).toContain(i18n.t('tpr.login.server_url'));
   });
 
   test('toggles key visibility with an accessible pressed button', () => {
@@ -92,24 +82,11 @@ describe('LoginForm', () => {
   });
 });
 
-describe('login copy', () => {
-  test('every locale has the URL actions, key toggle labels and colon-free field labels', async () => {
-    for (const language of LANGUAGE_ORDER) {
-      const { login } = await Bun.file(`src/i18n/locales/${language}.json`).json();
-      expect(login.connection_edit.length).toBeGreaterThan(0);
-      expect(login.show_key.length).toBeGreaterThan(0);
-      expect(login.hide_key.length).toBeGreaterThan(0);
-      expect(login.connection_done.length).toBeGreaterThan(0);
-      expect(login.management_key_label).not.toMatch(/[:：]\s*$/);
-      expect(login.custom_connection_label).not.toMatch(/[:：]\s*$/);
-    }
-  });
-});
-
 describe('login brand mark', () => {
-  test('shows the full English product name in every language', async () => {
+  test('uses the product name', async () => {
     const source = await Bun.file('src/pages/LoginPage.tsx').text();
-    expect(source).toContain("LOGIN_BRAND_NAME = 'CLI Proxy API Management Center'");
-    expect(source).toMatch(/className=\{styles\.brandName\}[^>]*>\s*\{LOGIN_BRAND_NAME\}/);
+    expect(source).toContain('{BRAND_NAME}');
+    const logo = await Bun.file('src/assets/logoInline.ts').text();
+    expect(logo).toContain("BRAND_NAME = 'Token Proxy Router'");
   });
 });

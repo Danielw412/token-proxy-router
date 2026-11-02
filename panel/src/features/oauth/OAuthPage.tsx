@@ -36,7 +36,7 @@ type DialogTarget = { kind: 'oauth'; id: string } | { kind: 'vertex' };
  * 点磁贴即开始登录；对话框可随时关闭，授权在后台继续，磁贴副行实时反映进度。
  * 对话框关闭后保留最后一个目标，让退出动画期间内容不消失。
  */
-export function OAuthPage() {
+export function OAuthPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const apiBase = useAuthStore((state) => state.apiBase);
@@ -45,9 +45,13 @@ export function OAuthPage() {
   const otherMethodsId = useId();
 
   const pluginProviders = usePluginOAuthProviders(apiBase);
+  // Embedded under "More providers": Claude and Codex already have their own entries.
   const providerCards = useMemo<OAuthProviderCard[]>(
-    () => [...OAUTH_PROVIDERS, ...pluginProviders],
-    [pluginProviders]
+    () =>
+      [...OAUTH_PROVIDERS, ...pluginProviders].filter(
+        (card) => !embedded || (card.id !== 'anthropic' && card.id !== 'codex')
+      ),
+    [embedded, pluginProviders]
   );
 
   const focusedRef = useRef<string | null>(null);
@@ -153,11 +157,13 @@ export function OAuthPage() {
 
   return (
     <div className={styles.page} ref={revealRef}>
-      <OAuthHeader
-        providerCount={providerCount}
-        waitingCount={waitingCount}
-        addedCount={flows.addedCount}
-      />
+      {!embedded && (
+        <OAuthHeader
+          providerCount={providerCount}
+          waitingCount={waitingCount}
+          addedCount={flows.addedCount}
+        />
+      )}
 
       <div className={styles.grid}>{providerCards.map(renderTile)}</div>
 

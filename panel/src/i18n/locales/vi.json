@@ -57,11 +57,11 @@
     "unsaved_changes_message": "Bạn có thay đổi chưa lưu. Rời đi bây giờ sẽ mất các thay đổi đó. Bạn có muốn rời đi không?"
   },
   "title": {
-    "login": "Trung tâm Quản lý CLI Proxy API",
-    "abbr": "CPAMC"
+    "login": "Token Proxy Router",
+    "abbr": "Router"
   },
   "splash": {
-    "title": "CLI Proxy API",
+    "title": "Token Proxy Router",
     "subtitle": "Trung tâm Quản lý"
   },
   "login": {

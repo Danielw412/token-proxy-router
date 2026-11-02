@@ -1,0 +1,180 @@
+.pools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.pool {
+  display: block;
+  min-width: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+  color: inherit;
+  transition: border-color var(--dur-hover) ease;
+
+  &:hover {
+    border-color: var(--border-hover);
+  }
+}
+
+.poolHead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.poolName {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.poolCount {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.poolFigure {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.big {
+  color: var(--text-primary);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.of {
+  color: var(--text-secondary);
+  font-size: 13.5px;
+}
+
+.poolStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px 20px;
+  margin: 12px 0 0;
+
+  dt {
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    font-weight: 400;
+  }
+
+  dd {
+    margin: 1px 0 0;
+    color: var(--text-primary);
+    font-size: 13.5px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.routed dd {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.poolWarn {
+  margin-top: 10px;
+  color: var(--warning-text);
+  font-size: 12.5px;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+
+  > * > section,
+  > section {
+    height: 100%;
+  }
+}
+
+.tileLink {
+  display: block;
+  min-width: 0;
+  color: inherit;
+
+  > section {
+    transition: border-color var(--dur-hover) ease;
+  }
+
+  &:hover > section {
+    border-color: var(--border-hover);
+  }
+}
+
+.lower {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.failures {
+  display: flex;
+  flex-direction: column;
+
+  li {
+    padding: 9px 0;
+    border-top: 1px solid var(--border-color);
+    font-size: 13px;
+
+    &:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+  }
+}
+
+.failureTop {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.failureName {
+  min-width: 0;
+  color: var(--text-primary);
+}
+
+.failureWhen {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+}
+
+.failureMessage {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+@media (max-width: 1100px) {
+  .lower {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: $breakpoint-mobile) {
+  .pools {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

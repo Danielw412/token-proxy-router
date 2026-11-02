@@ -24,7 +24,9 @@ i18n.use(initReactI18next).init({
     tr: { translation: tr },
   },
   lng: getInitialLanguage(),
-  fallbackLng: 'zh-CN',
+  // New strings ship in English only; other locales fall back quietly.
+  fallbackLng: 'en',
+  returnEmptyString: false,
   interpolation: {
     escapeValue: false, // React 已经转义
   },

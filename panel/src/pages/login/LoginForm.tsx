@@ -57,51 +57,6 @@ export function LoginForm({
   return (
     <form className={styles.form} onSubmit={handleSubmit} noValidate>
       <div className={styles.field} data-stagger>
-        <div className={styles.labelRow}>
-          <label className={styles.label} htmlFor={editingBase ? baseId : undefined}>
-            {editingBase ? t('login.custom_connection_label') : t('login.connection_current')}
-          </label>
-          <button
-            type="button"
-            className={styles.textButton}
-            aria-expanded={editingBase}
-            aria-controls={baseId}
-            disabled={locked}
-            onClick={() => {
-              const next = !editingBase;
-              onEditingBaseChange(next);
-              if (!next) keyInputRef.current?.focus();
-            }}
-          >
-            {editingBase ? t('login.connection_done') : t('login.connection_edit')}
-          </button>
-        </div>
-        {editingBase ? (
-          <input
-            id={baseId}
-            className={`${styles.input} ${styles.mono}`}
-            type="url"
-            inputMode="url"
-            autoFocus
-            autoComplete="url"
-            spellCheck={false}
-            placeholder={t('login.custom_connection_placeholder')}
-            readOnly={locked}
-            value={apiBase}
-            onChange={(event) => onApiBaseChange(event.target.value)}
-          />
-        ) : (
-          <div
-            id={baseId}
-            className={`${styles.readout} ${styles.mono}`}
-            title={apiBase || detectedBase}
-          >
-            <span className={styles.readoutText}>{apiBase || detectedBase}</span>
-          </div>
-        )}
-      </div>
-
-      <div className={styles.field} data-stagger>
         <label className={styles.label} htmlFor={keyId}>
           {t('login.management_key_label')}
         </label>
@@ -111,9 +66,9 @@ export function LoginForm({
             id={keyId}
             className={`${styles.input} ${styles.inputWithAction}`}
             type={showKey ? 'text' : 'password'}
-            name="cpa-management-key"
+            name="tpr-management-key"
             autoComplete="current-password"
-            autoFocus={!editingBase}
+            autoFocus
             spellCheck={false}
             placeholder={t('login.management_key_placeholder')}
             readOnly={locked}
@@ -139,10 +94,41 @@ export function LoginForm({
         <SelectionCheckbox
           checked={rememberPassword}
           onChange={onRememberPasswordChange}
-          label={t('login.remember_password_label')}
+          label={t('tpr.login.remember_me')}
           labelClassName={styles.checkboxLabel}
         />
+        <button
+          type="button"
+          className={styles.textButton}
+          aria-expanded={editingBase}
+          aria-controls={baseId}
+          disabled={locked}
+          onClick={() => onEditingBaseChange(!editingBase)}
+        >
+          {t('tpr.login.advanced')}
+        </button>
       </div>
+
+      {editingBase ? (
+        <div className={styles.field} data-stagger>
+          <label className={styles.label} htmlFor={baseId}>
+            {t('tpr.login.server_url')}
+          </label>
+          <input
+            id={baseId}
+            className={styles.input}
+            type="url"
+            inputMode="url"
+            autoComplete="url"
+            spellCheck={false}
+            placeholder={detectedBase}
+            readOnly={locked}
+            value={apiBase}
+            onChange={(event) => onApiBaseChange(event.target.value)}
+          />
+          <p className={styles.fieldHint}>{t('tpr.login.server_url_hint')}</p>
+        </div>
+      ) : null}
 
       <div className={styles.actions} data-stagger>
         <button

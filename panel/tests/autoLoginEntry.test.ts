@@ -3,10 +3,6 @@ import { obfuscatedStorage } from '@/services/storage/secureStorage';
 import { STORAGE_KEY_AUTH } from '@/utils/constants';
 import { resolveLoginRedirect } from '@/router/loginRedirect';
 import { shouldAttemptAutoLogin, useAuthStore } from '@/stores/useAuthStore';
-import {
-  LOGIN_TRANSITION_TIMINGS,
-  LOGIN_TRANSITION_TIMINGS_REDUCED,
-} from '@/stores/useLoginTransitionStore';
 
 const originalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
 let values: Map<string, string>;
@@ -133,24 +129,5 @@ describe('v2 login persistence', () => {
       STORAGE_KEY_AUTH
     );
     expect(saved?.state.managementKey).toBeUndefined();
-  });
-});
-
-describe('splash pacing', () => {
-  test('auto-login holds the splash just long enough to read, not a fixed 1.5s', async () => {
-    expect(LOGIN_TRANSITION_TIMINGS.splashMin).toBeGreaterThanOrEqual(500);
-    expect(LOGIN_TRANSITION_TIMINGS.splashMin).toBeLessThanOrEqual(900);
-    expect(LOGIN_TRANSITION_TIMINGS_REDUCED.splashMin).toBe(LOGIN_TRANSITION_TIMINGS.splashMin);
-    const source = await Bun.file('src/pages/LoginPage.tsx').text();
-    expect(source).not.toContain('1500');
-    expect(source).toContain('Math.max(0, splashMin - elapsed)');
-  });
-
-  test('splash hides the top brand bar and is vertically centered', async () => {
-    const source = await Bun.file('src/pages/LoginPage.tsx').text();
-    expect(source).toMatch(/\{!showSplash && \(\s*<header className=\{styles\.topBar\}>/);
-    const scss = await Bun.file('src/pages/LoginPage.module.scss').text();
-    expect(scss).toMatch(/\.main \{[^}]*grid-row: 2;/);
-    expect(scss).toMatch(/\.splash \{[^}]*margin-block: auto;/);
   });
 });

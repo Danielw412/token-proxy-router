@@ -57,11 +57,11 @@
     "unsaved_changes_message": "你有未儲存的變更，離開後將遺失這些變更。確定要離開嗎？"
   },
   "title": {
-    "login": "CLI Proxy API Management Center",
-    "abbr": "CPAMC"
+    "login": "Token Proxy Router",
+    "abbr": "Router"
   },
   "splash": {
-    "title": "CLI Proxy API",
+    "title": "Token Proxy Router",
     "subtitle": "管理中心"
   },
   "login": {

@@ -1,515 +1,678 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Collapsible } from '@/components/ui/Collapsible';
 import { Modal } from '@/components/ui/Modal';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
-import { IconGithub, IconBookOpen, IconExternalLink, IconCode } from '@/components/ui/icons';
+import { IconExternalLink } from '@/components/ui/icons';
 import {
-  useAuthStore,
-  useConfigStore,
-  useNotificationStore,
-  useModelsStore,
-  useThemeStore,
-} from '@/stores';
-import { configApi, versionApi } from '@/services/api';
+  Badge,
+  Note,
+  Page,
+  PageHeader,
+  Panel,
+  PrivateEmail,
+  ResourceError,
+  Stat,
+} from '@/components/tpr/Ui';
+import { formatDuration, formatWhen } from '@/features/quota/chart/chartModel';
+import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useTprResource } from '@/hooks/useTprResource';
 import { useApiKeysForModels } from '@/hooks/useApiKeysForModels';
-import { formatDateTimeValue } from '@/utils/format';
-import { classifyModels } from '@/utils/models';
+import { tprApi, type TprTailscale } from '@/services/api/tpr';
+import { useAuthStore, useModelsStore, useNotificationStore } from '@/stores';
 import { STORAGE_KEY_AUTH } from '@/utils/constants';
-import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
-import iconGemini from '@/assets/icons/gemini.svg';
-import iconClaude from '@/assets/icons/claude.svg';
-import iconMeta from '@/assets/icons/meta.svg';
-import iconDevinLight from '@/assets/icons/devin.svg';
-import iconDevinDark from '@/assets/icons/devin-dark.svg';
-import iconOpenaiLight from '@/assets/icons/openai-light.svg';
-import iconOpenaiDark from '@/assets/icons/openai-dark.svg';
-import iconQwen from '@/assets/icons/qwen.svg';
-import iconKimiLight from '@/assets/icons/kimi-light.svg';
-import iconKimiDark from '@/assets/icons/kimi-dark.svg';
-import iconGlm from '@/assets/icons/glm.svg';
-import iconGrok from '@/assets/icons/grok.svg';
-import iconGrokDark from '@/assets/icons/grok-dark.svg';
-import iconDeepseek from '@/assets/icons/deepseek.svg';
-import iconMinimax from '@/assets/icons/minimax.svg';
-import iconXiaomi from '@/assets/icons/xiaomi.svg';
-import iconStepfun from '@/assets/icons/stepfun.svg';
-import iconStepfunDark from '@/assets/icons/stepfun-dark.svg';
+import { downloadBlob } from '@/utils/download';
+import { getErrorMessage } from '@/utils/helpers';
+import { classifyModels } from '@/utils/models';
 import styles from './SystemPage.module.scss';
 
-const MODEL_CATEGORY_ICONS: Record<string, string | { light: string; dark: string }> = {
-  devin: { light: iconDevinLight, dark: iconDevinDark },
-  gpt: { light: iconOpenaiLight, dark: iconOpenaiDark },
-  claude: iconClaude,
-  meta: iconMeta,
-  gemini: iconGemini,
-  qwen: iconQwen,
-  kimi: { light: iconKimiDark, dark: iconKimiLight },
-  glm: iconGlm,
-  grok: { light: iconGrok, dark: iconGrokDark },
-  deepseek: iconDeepseek,
-  minimax: iconMinimax,
-  xiaomi: iconXiaomi,
-  stepfun: { light: iconStepfun, dark: iconStepfunDark },
-};
-
-const parseVersionSegments = (version?: string | null) => {
-  if (!version) return null;
-  const cleaned = version.trim().replace(/^v/i, '');
-  if (!cleaned) return null;
-  const parts = cleaned
-    .split(/[^0-9]+/)
-    .filter(Boolean)
-    .map((segment) => Number.parseInt(segment, 10))
-    .filter(Number.isFinite);
-  return parts.length ? parts : null;
-};
-
-const compareVersions = (latest?: string | null, current?: string | null) => {
-  const latestParts = parseVersionSegments(latest);
-  const currentParts = parseVersionSegments(current);
-  if (!latestParts || !currentParts) return null;
-  const length = Math.max(latestParts.length, currentParts.length);
-  for (let i = 0; i < length; i++) {
-    const l = latestParts[i] || 0;
-    const c = currentParts[i] || 0;
-    if (l > c) return 1;
-    if (l < c) return -1;
-  }
-  return 0;
-};
+const UPDATE_POLL_MS = 1500;
+const MIN_PASSPHRASE = 12;
 
 export function SystemPage() {
   const { t, i18n } = useTranslation();
-  const { showNotification, showConfirmation } = useNotificationStore();
-  const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
-  const auth = useAuthStore();
-  const config = useConfigStore((state) => state.config);
-  const fetchConfig = useConfigStore((state) => state.fetchConfig);
-  const clearCache = useConfigStore((state) => state.clearCache);
-  const updateConfigValue = useConfigStore((state) => state.updateConfigValue);
+  const locale = i18n.language;
+  const showNotification = useNotificationStore((state) => state.showNotification);
+  const system = useTprResource(() => tprApi.system(), []);
+  const tailscale = useTprResource(() => tprApi.tailscale(), []);
+  useHeaderRefresh(async () => {
+    await Promise.all([system.refresh(), tailscale.refresh()]);
+  });
 
-  const models = useModelsStore((state) => state.models);
-  const modelsLoading = useModelsStore((state) => state.loading);
-  const modelsError = useModelsStore((state) => state.error);
-  const fetchModelsFromStore = useModelsStore((state) => state.fetchModels);
+  const notify = (err: unknown) =>
+    showNotification(getErrorMessage(err, t('common.unknown_error')), 'error');
 
-  const [modelStatus, setModelStatus] = useState<{
-    type: 'success' | 'warning' | 'error' | 'muted';
-    message: string;
-  }>();
-  const [requestLogModalOpen, setRequestLogModalOpen] = useState(false);
-  const [requestLogDraft, setRequestLogDraft] = useState(false);
-  const [requestLogTouched, setRequestLogTouched] = useState(false);
-  const [requestLogSaving, setRequestLogSaving] = useState(false);
-  const [checkingVersion, setCheckingVersion] = useState(false);
+  return (
+    <Page>
+      <PageHeader
+        title={t('tpr.system.title')}
+        meta={
+          system.data
+            ? t('tpr.system.meta', {
+                version: system.data.version,
+                uptime: formatDuration(system.data.uptime_seconds * 1000),
+              })
+            : undefined
+        }
+      />
 
-  const versionTapCount = useRef(0);
-  const versionTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+      {system.error && (
+        <ResourceError
+          message={system.error}
+          status={system.errorStatus}
+          onRetry={() => void system.refresh()}
+        />
+      )}
 
-  const otherLabel = useMemo(
-    () => (i18n.language?.toLowerCase().startsWith('zh') ? '其他' : 'Other'),
-    [i18n.language]
+      <UpdateCard
+        systemVersion={system.data?.version ?? ''}
+        refreshSystem={system.refresh}
+        onError={notify}
+        locale={locale}
+      />
+
+      <TailscaleCard
+        data={tailscale.data}
+        error={tailscale.error}
+        errorStatus={tailscale.errorStatus}
+        loading={tailscale.loading}
+        refresh={tailscale.refresh}
+        onError={notify}
+      />
+
+      <BackupCard onError={notify} />
+
+      <Panel title={t('tpr.system.service_title')} description={t('tpr.system.service_description')}>
+        {system.loading && !system.data ? (
+          <Skeleton height={64} />
+        ) : system.data ? (
+          <div className={styles.stats}>
+            <Stat
+              label={t('tpr.system.service_kind')}
+              value={t(`tpr.system.service_kind_${system.data.service.kind.replace('-', '_')}`, {
+                defaultValue: system.data.service.kind,
+              })}
+            />
+            <Stat
+              label={t('tpr.system.service_state')}
+              value={system.data.service.running ? t('tpr.system.running') : t('tpr.system.stopped')}
+              tone={system.data.service.running ? 'good' : 'warn'}
+            />
+            <Stat label={t('tpr.system.data_dir')} value={<code>{system.data.data_dir}</code>} />
+            <Stat label={t('tpr.system.platform')} value={`${system.data.os} / ${system.data.arch}`} />
+          </div>
+        ) : null}
+      </Panel>
+
+      <Panel title={t('tpr.system.about_title')} description={t('tpr.system.about_description')}>
+        <div className={styles.stats}>
+          <Stat label={t('tpr.system.version')} value={system.data?.version ?? '—'} sub={system.data?.commit} />
+          <Stat label={t('tpr.system.upstream')} value={system.data?.upstream_version ?? '—'} />
+          <Stat label={t('tpr.system.panel')} value={system.data?.panel_version || __APP_VERSION__ || '—'} />
+        </div>
+        <p className={styles.credits}>{t('tpr.system.credits')}</p>
+        <div className={styles.links}>
+          <a href="https://github.com/Danielw412/token-proxy-router" target="_blank" rel="noopener noreferrer">
+            Token Proxy Router <IconExternalLink size={12} />
+          </a>
+          <a href="https://github.com/router-for-me/CLIProxyAPI" target="_blank" rel="noopener noreferrer">
+            CLIProxyAPI <IconExternalLink size={12} />
+          </a>
+          <a
+            href="https://github.com/router-for-me/Cli-Proxy-API-Management-Center"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Management Center <IconExternalLink size={12} />
+          </a>
+        </div>
+      </Panel>
+
+      <Collapsible className={styles.more} label={t('tpr.system.models_title')} hint={t('tpr.system.models_hint')}>
+        <ModelsList />
+      </Collapsible>
+
+      <Collapsible className={styles.more} label={t('tpr.system.this_browser_title')}>
+        <ThisBrowser />
+      </Collapsible>
+    </Page>
   );
-  const groupedModels = useMemo(() => classifyModels(models, { otherLabel }), [models, otherLabel]);
-  const requestLogEnabled = config?.requestLog ?? false;
-  const requestLogDirty = requestLogDraft !== requestLogEnabled;
-  const canEditRequestLog = auth.connectionStatus === 'connected' && Boolean(config);
+}
 
-  const appVersion = __APP_VERSION__ || t('system_info.version_unknown');
-  const apiVersion = auth.serverVersion || t('system_info.version_unknown');
-  const buildTime =
-    formatDateTimeValue(auth.serverBuildDate, i18n.language) || t('system_info.version_unknown');
+function UpdateCard({
+  systemVersion,
+  refreshSystem,
+  onError,
+  locale,
+}: {
+  systemVersion: string;
+  refreshSystem: () => Promise<void>;
+  onError: (err: unknown) => void;
+  locale: string;
+}) {
+  const { t } = useTranslation();
+  const showConfirmation = useNotificationStore((state) => state.showConfirmation);
+  const [polling, setPolling] = useState(false);
+  const update = useTprResource(() => tprApi.update(), [], {
+    intervalMs: polling ? UPDATE_POLL_MS : 5 * 60_000,
+  });
+  const [checking, setChecking] = useState(false);
+  const startVersionRef = useRef('');
+  const data = update.data;
+  const inFlight = Boolean(data && data.state !== 'idle' && data.state !== 'failed');
+  const STEPS = ['downloading', 'verifying', 'applying', 'restarting'];
+  const stepIndex = data ? STEPS.indexOf(data.state) : -1;
 
-  const getIconForCategory = (categoryId: string): string | null => {
-    const iconEntry = MODEL_CATEGORY_ICONS[categoryId];
-    if (!iconEntry) return null;
-    if (typeof iconEntry === 'string') return iconEntry;
-    return resolvedTheme === 'dark' ? iconEntry.dark : iconEntry.light;
-  };
+  useEffect(() => {
+    if (inFlight) setPolling(true);
+  }, [inFlight]);
 
-  const resolveApiKeysForModels = useApiKeysForModels();
+  // During a restart the server may be briefly gone. Keep asking, and reload once it is back on a new version.
+  useEffect(() => {
+    if (!polling) return;
+    const timer = window.setInterval(() => {
+      void tprApi
+        .system()
+        .then((info) => {
+          if (startVersionRef.current && info.version !== startVersionRef.current) {
+            window.location.reload();
+          } else if (!startVersionRef.current) {
+            startVersionRef.current = info.version;
+          }
+        })
+        .catch(() => undefined);
+    }, UPDATE_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [polling]);
 
-  const fetchModels = async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
-    if (auth.connectionStatus !== 'connected') {
-      setModelStatus({
-        type: 'warning',
-        message: t('notification.connection_required'),
-      });
-      return;
-    }
+  useEffect(() => {
+    if (data?.state === 'failed') setPolling(false);
+  }, [data?.state]);
 
-    if (!auth.apiBase) {
-      showNotification(t('notification.connection_required'), 'warning');
-      return;
-    }
-
-    setModelStatus({ type: 'muted', message: t('system_info.models_loading') });
+  const check = async () => {
+    setChecking(true);
     try {
-      const apiKeys = await resolveApiKeysForModels({ force: forceRefresh });
-      const primaryKey = apiKeys[0];
-      const list = await fetchModelsFromStore(auth.apiBase, primaryKey, forceRefresh);
-      const hasModels = list.length > 0;
-      setModelStatus({
-        type: hasModels ? 'success' : 'warning',
-        message: hasModels
-          ? t('system_info.models_count', { count: list.length })
-          : t('system_info.models_empty'),
-      });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
-      const suffix = message ? `: ${message}` : '';
-      const text = `${t('system_info.models_error')}${suffix}`;
-      setModelStatus({ type: 'error', message: text });
+      await tprApi.checkUpdate();
+      await update.refresh();
+    } catch (err) {
+      onError(err);
+    } finally {
+      setChecking(false);
     }
   };
 
-  const handleClearLoginStorage = () => {
+  const apply = async () => {
+    startVersionRef.current = systemVersion;
+    try {
+      await tprApi.applyUpdate();
+      setPolling(true);
+      await update.refresh();
+    } catch (err) {
+      onError(err);
+    }
+  };
+
+  const rollback = () => {
     showConfirmation({
-      title: t('system_info.clear_login_title', { defaultValue: 'Clear Login Storage' }),
-      message: t('system_info.clear_login_confirm'),
+      title: t('tpr.system.rollback_title'),
+      message: t('tpr.system.rollback_message'),
       variant: 'danger',
-      confirmText: t('common.confirm'),
-      onConfirm: () => {
-        auth.logout();
-        if (typeof localStorage === 'undefined') return;
-        const keysToRemove = [STORAGE_KEY_AUTH, 'isLoggedIn', 'apiBase', 'apiUrl', 'managementKey'];
-        keysToRemove.forEach((key) => localStorage.removeItem(key));
-        showNotification(t('notification.login_storage_cleared'), 'success');
+      confirmText: t('tpr.system.rollback'),
+      onConfirm: async () => {
+        startVersionRef.current = systemVersion;
+        try {
+          await tprApi.rollbackUpdate();
+          setPolling(true);
+          await update.refresh();
+          await refreshSystem();
+        } catch (err) {
+          onError(err);
+        }
       },
     });
   };
 
-  const openRequestLogModal = useCallback(() => {
-    setRequestLogTouched(false);
-    setRequestLogDraft(requestLogEnabled);
-    setRequestLogModalOpen(true);
-  }, [requestLogEnabled]);
+  if (update.error && !data) {
+    return (
+      <Panel title={t('tpr.system.update_title')}>
+        <ResourceError message={update.error} status={update.errorStatus} onRetry={() => void update.refresh()} />
+      </Panel>
+    );
+  }
 
-  const handleInfoVersionTap = useCallback(() => {
-    versionTapCount.current += 1;
-    if (versionTapTimer.current) {
-      clearTimeout(versionTapTimer.current);
-    }
+  return (
+    <Panel
+      title={t('tpr.system.update_title')}
+      description={
+        data
+          ? data.available
+            ? t('tpr.system.update_available', { current: data.current, latest: data.latest })
+            : t('tpr.system.update_current', { current: data.current })
+          : undefined
+      }
+      actions={
+        <>
+          <Button variant="secondary" size="sm" onClick={() => void check()} loading={checking} disabled={inFlight}>
+            {t('tpr.system.update_check')}
+          </Button>
+          {data?.rollback_available && (
+            <Button variant="secondary" size="sm" onClick={rollback} disabled={inFlight}>
+              {t('tpr.system.rollback')}
+            </Button>
+          )}
+          {data?.available && (
+            <Button size="sm" onClick={() => void apply()} disabled={inFlight || !data.can_apply}>
+              {t('tpr.system.update_apply', { version: data.latest })}
+            </Button>
+          )}
+        </>
+      }
+    >
+      {!data ? (
+        <Skeleton height={40} />
+      ) : (
+        <>
+          {inFlight && (
+            <div className={styles.progress} role="status" aria-live="polite">
+              <ol className={styles.steps}>
+                {STEPS.map((step, index) => (
+                  <li key={step} data-state={index < stepIndex ? 'done' : index === stepIndex ? 'active' : undefined}>
+                    {t(`tpr.system.update_step_${step}`)}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+          {data.state === 'failed' && data.error && <Note tone="error">{data.error}</Note>}
+          {!data.can_apply && data.available && data.reason && <Note tone="warn">{data.reason}</Note>}
+          {data.available && data.notes && (
+            <div className={styles.notes}>
+              <div className={styles.notesTitle}>{t('tpr.system.release_notes')}</div>
+              <p className={styles.notesBody}>{data.notes}</p>
+              {data.notes_url && (
+                <a href={data.notes_url} target="_blank" rel="noopener noreferrer">
+                  {t('tpr.system.release_notes_link')} <IconExternalLink size={12} />
+                </a>
+              )}
+            </div>
+          )}
+          {data.checked_at && (
+            <p className={styles.checked}>
+              {t('tpr.system.checked_at', { when: formatWhen(Date.parse(data.checked_at), locale) })}
+            </p>
+          )}
+        </>
+      )}
+    </Panel>
+  );
+}
 
-    if (versionTapCount.current >= 7) {
-      versionTapCount.current = 0;
-      versionTapTimer.current = null;
-      openRequestLogModal();
-      return;
-    }
+export function TailnetToggle({
+  data,
+  refresh,
+  onError,
+}: {
+  data: TprTailscale;
+  refresh: () => Promise<void>;
+  onError: (err: unknown) => void;
+}) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
 
-    versionTapTimer.current = setTimeout(() => {
-      versionTapCount.current = 0;
-      versionTapTimer.current = null;
-    }, 1500);
-  }, [openRequestLogModal]);
-
-  const handleRequestLogClose = useCallback(() => {
-    setRequestLogModalOpen(false);
-    setRequestLogTouched(false);
-  }, []);
-
-  const handleRequestLogSave = async () => {
-    if (!canEditRequestLog) return;
-    if (!requestLogDirty) {
-      setRequestLogModalOpen(false);
-      return;
-    }
-
-    const previous = requestLogEnabled;
-    setRequestLogSaving(true);
-    updateConfigValue('request-log', requestLogDraft);
-
+  const toggle = async (next: boolean) => {
+    setBusy(true);
     try {
-      await configApi.updateRequestLog(requestLogDraft);
-      clearCache('request-log');
-      showNotification(t('notification.request_log_updated'), 'success');
-      setRequestLogModalOpen(false);
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : typeof error === 'string' ? error : '';
-      updateConfigValue('request-log', previous);
-      showNotification(
-        `${t('notification.update_failed')}${message ? `: ${message}` : ''}`,
-        'error'
-      );
+      if (next) await tprApi.expose(data.port || 8443);
+      else await tprApi.unexpose();
+      await refresh();
+    } catch (err) {
+      onError(err);
     } finally {
-      setRequestLogSaving(false);
+      setBusy(false);
     }
   };
 
-  const handleVersionCheck = useCallback(async () => {
-    setCheckingVersion(true);
+  return (
+    <div className={styles.tailnet}>
+      <div className={styles.tailnetRow}>
+        <div className={styles.tailnetText}>
+          <div className={styles.tailnetLabel}>{t('tpr.tailnet.expose')}</div>
+          {data.exposed && data.url ? (
+            <a className={styles.tailnetUrl} href={data.url} target="_blank" rel="noopener noreferrer">
+              {data.url}
+            </a>
+          ) : (
+            <div className={styles.tailnetHint}>{t('tpr.tailnet.expose_hint')}</div>
+          )}
+        </div>
+        <ToggleSwitch
+          ariaLabel={t('tpr.tailnet.expose')}
+          checked={data.exposed}
+          disabled={busy || (!data.can_expose && !data.exposed)}
+          onChange={(next) => void toggle(next)}
+        />
+      </div>
+      {!data.can_expose && data.hint && <Note tone="warn">{data.hint}</Note>}
+    </div>
+  );
+}
+
+function TailscaleCard({
+  data,
+  error,
+  errorStatus,
+  loading,
+  refresh,
+  onError,
+}: {
+  data: TprTailscale | null;
+  error: string;
+  errorStatus: number | null;
+  loading: boolean;
+  refresh: () => Promise<void>;
+  onError: (err: unknown) => void;
+}) {
+  const { t } = useTranslation();
+  const [login, setLogin] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const saveIdentity = async (enabled: boolean, logins: string[]) => {
+    setBusy(true);
     try {
-      const data = await versionApi.checkLatest();
-      const latestRaw = data?.['latest-version'] ?? data?.latest_version ?? data?.latest ?? '';
-      const latest = typeof latestRaw === 'string' ? latestRaw : String(latestRaw ?? '');
-      const comparison = compareVersions(latest, auth.serverVersion);
-
-      if (!latest) {
-        showNotification(t('system_info.version_check_error'), 'error');
-        return;
-      }
-
-      if (comparison === null) {
-        showNotification(t('system_info.version_current_missing'), 'warning');
-        return;
-      }
-
-      if (comparison > 0) {
-        showNotification(t('system_info.version_update_available', { version: latest }), 'warning');
-      } else {
-        showNotification(t('system_info.version_is_latest'), 'success');
-      }
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : typeof error === 'string' ? error : '';
-      const suffix = message ? `: ${message}` : '';
-      showNotification(`${t('system_info.version_check_error')}${suffix}`, 'error');
+      await tprApi.setIdentity(enabled, logins);
+      await refresh();
+    } catch (err) {
+      onError(err);
     } finally {
-      setCheckingVersion(false);
+      setBusy(false);
     }
-  }, [auth.serverVersion, showNotification, t]);
-
-  useEffect(() => {
-    fetchConfig().catch(() => {
-      // ignore
-    });
-  }, [fetchConfig]);
-
-  useEffect(() => {
-    if (requestLogModalOpen && !requestLogTouched) {
-      setRequestLogDraft(requestLogEnabled);
-    }
-  }, [requestLogModalOpen, requestLogTouched, requestLogEnabled]);
-
-  useEffect(() => {
-    return () => {
-      if (versionTapTimer.current) {
-        clearTimeout(versionTapTimer.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    fetchModels();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.connectionStatus, auth.apiBase]);
+  };
 
   return (
-    <div className={styles.container}>
-      <h1 className={styles.pageTitle}>{t('system_info.title')}</h1>
-      <div className={styles.content}>
-        <Card className={styles.aboutCard}>
-          <div className={styles.aboutHeader}>
-            <img src={INLINE_LOGO_JPEG} alt="CPAMC" className={styles.aboutLogo} />
-            <div className={styles.aboutTitle}>{t('system_info.about_title')}</div>
-          </div>
-
-          <div className={styles.aboutInfoGrid}>
-            <button
-              type="button"
-              className={`${styles.infoTile} ${styles.tapTile}`}
-              onClick={handleInfoVersionTap}
-            >
-              <div className={styles.tileHeader}>
-                <div className={styles.tileLabel}>{t('footer.version')}</div>
+    <Panel
+      title={t('tpr.tailnet.title')}
+      description={t('tpr.tailnet.description')}
+      actions={
+        data ? (
+          <Badge tone={data.logged_in ? 'good' : 'warn'}>
+            {data.logged_in
+              ? t('tpr.tailnet.signed_in')
+              : data.installed
+                ? t('tpr.tailnet.not_signed_in')
+                : t('tpr.tailnet.not_installed')}
+          </Badge>
+        ) : undefined
+      }
+    >
+      {error && !data ? (
+        <ResourceError message={error} status={errorStatus} onRetry={() => void refresh()} />
+      ) : loading && !data ? (
+        <Skeleton height={70} />
+      ) : data ? (
+        <>
+          <TailnetToggle data={data} refresh={refresh} onError={onError} />
+          <div className={styles.identity}>
+            <div className={styles.tailnetRow}>
+              <div className={styles.tailnetText}>
+                <div className={styles.tailnetLabel}>{t('tpr.tailnet.identity')}</div>
+                <div className={styles.tailnetHint}>{t('tpr.tailnet.identity_hint')}</div>
               </div>
-              <div className={styles.tileValue}>{appVersion}</div>
-            </button>
-
-            <div className={styles.infoTile}>
-              <div className={styles.tileHeader}>
-                <div className={styles.tileLabel}>{t('footer.api_version')}</div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className={styles.tileAction}
-                  onClick={() => void handleVersionCheck()}
-                  loading={checkingVersion}
-                  title={t('system_info.version_check_button')}
-                  aria-label={t('system_info.version_check_button')}
+              <ToggleSwitch
+                ariaLabel={t('tpr.tailnet.identity')}
+                checked={data.identity.enabled}
+                disabled={busy || !data.identity.available}
+                onChange={(next) => void saveIdentity(next, data.identity.allowed_logins)}
+              />
+            </div>
+            <Note tone="warn">{t('tpr.tailnet.identity_warning')}</Note>
+            {data.identity.available ? (
+              <>
+                <ul className={styles.logins}>
+                  {data.identity.allowed_logins.map((item) => (
+                    <li key={item}>
+                      <PrivateEmail value={item} />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() =>
+                          void saveIdentity(
+                            data.identity.enabled,
+                            data.identity.allowed_logins.filter((value) => value !== item)
+                          )
+                        }
+                      >
+                        {t('tpr.tailnet.remove_login')}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+                <form
+                  className={styles.loginForm}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const value = login.trim();
+                    if (!value) return;
+                    void saveIdentity(data.identity.enabled, [...data.identity.allowed_logins, value]).then(
+                      () => setLogin('')
+                    );
+                  }}
                 >
-                  {t('system_info.version_check_button')}
-                </Button>
-              </div>
-              <div className={styles.tileValue}>{apiVersion}</div>
-            </div>
-
-            <div className={styles.infoTile}>
-              <div className={styles.tileLabel}>{t('footer.build_date')}</div>
-              <div className={styles.tileValue}>{buildTime}</div>
-            </div>
-
-            <div className={styles.infoTile}>
-              <div className={styles.tileLabel}>{t('connection.status')}</div>
-              <div className={styles.tileValue}>{t(`common.${auth.connectionStatus}_status`)}</div>
-              <div className={styles.tileSub}>{auth.apiBase || '-'}</div>
-            </div>
+                  <input
+                    className="input"
+                    type="email"
+                    value={login}
+                    placeholder="alice@example.com"
+                    aria-label={t('tpr.tailnet.allowed_login')}
+                    onChange={(event) => setLogin(event.target.value)}
+                  />
+                  <Button variant="secondary" size="sm" type="submit" disabled={!login.trim() || busy}>
+                    {t('tpr.tailnet.add_login')}
+                  </Button>
+                </form>
+              </>
+            ) : (
+              <p className={styles.tailnetHint}>{t('tpr.tailnet.identity_unavailable')}</p>
+            )}
           </div>
-        </Card>
+        </>
+      ) : null}
+    </Panel>
+  );
+}
 
-        <Card title={t('system_info.quick_links_title')}>
-          <p className={styles.sectionDescription}>{t('system_info.quick_links_desc')}</p>
-          <div className={styles.quickLinks}>
-            <a
-              href="https://github.com/router-for-me/CLIProxyAPI"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.linkCard}
-            >
-              <div className={`${styles.linkIcon} ${styles.github}`}>
-                <IconGithub size={22} />
-              </div>
-              <div className={styles.linkContent}>
-                <div className={styles.linkTitle}>
-                  {t('system_info.link_main_repo')}
-                  <IconExternalLink size={14} />
-                </div>
-                <div className={styles.linkDesc}>{t('system_info.link_main_repo_desc')}</div>
-              </div>
-            </a>
+function BackupCard({ onError }: { onError: (err: unknown) => void }) {
+  const { t } = useTranslation();
+  const showNotification = useNotificationStore((state) => state.showNotification);
+  const showConfirmation = useNotificationStore((state) => state.showConfirmation);
+  const [passphrase, setPassphrase] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [restorePassphrase, setRestorePassphrase] = useState('');
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const tooShort = passphrase.length > 0 && passphrase.length < MIN_PASSPHRASE;
 
-            <a
-              href="https://github.com/router-for-me/Cli-Proxy-API-Management-Center"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.linkCard}
-            >
-              <div className={`${styles.linkIcon} ${styles.github}`}>
-                <IconCode size={22} />
-              </div>
-              <div className={styles.linkContent}>
-                <div className={styles.linkTitle}>
-                  {t('system_info.link_webui_repo')}
-                  <IconExternalLink size={14} />
-                </div>
-                <div className={styles.linkDesc}>{t('system_info.link_webui_repo_desc')}</div>
-              </div>
-            </a>
+  const backup = async () => {
+    setBusy(true);
+    try {
+      const blob = await tprApi.backup(passphrase);
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadBlob({ filename: `tpr-backup-${stamp}.tprbak`, blob });
+      setPassphrase('');
+      showNotification(t('tpr.system.backup_done'), 'success');
+    } catch (err) {
+      onError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
 
-            <a
-              href="https://help.router-for.me/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.linkCard}
-            >
-              <div className={`${styles.linkIcon} ${styles.docs}`}>
-                <IconBookOpen size={22} />
-              </div>
-              <div className={styles.linkContent}>
-                <div className={styles.linkTitle}>
-                  {t('system_info.link_docs')}
-                  <IconExternalLink size={14} />
-                </div>
-                <div className={styles.linkDesc}>{t('system_info.link_docs_desc')}</div>
-              </div>
-            </a>
-          </div>
-        </Card>
+  const restore = () => {
+    if (!restoreFile) return;
+    showConfirmation({
+      title: t('tpr.system.restore_title'),
+      message: t('tpr.system.restore_message'),
+      variant: 'danger',
+      confirmText: t('tpr.system.restore'),
+      onConfirm: async () => {
+        setBusy(true);
+        try {
+          await tprApi.restore(restoreFile, restorePassphrase);
+          setRestoreOpen(false);
+          setRestorePassphrase('');
+          setRestoreFile(null);
+          showNotification(t('tpr.system.restore_done'), 'success');
+        } catch (err) {
+          onError(err);
+        } finally {
+          setBusy(false);
+        }
+      },
+    });
+  };
 
-        <Card
-          title={t('system_info.models_title')}
-          extra={
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => fetchModels({ forceRefresh: true })}
-              loading={modelsLoading}
-            >
-              {t('common.refresh')}
-            </Button>
-          }
-        >
-          <p className={styles.sectionDescription}>{t('system_info.models_desc')}</p>
-          {modelStatus && (
-            <div className={`status-badge ${modelStatus.type}`}>{modelStatus.message}</div>
-          )}
-          {modelsError && <div className="error-box">{modelsError}</div>}
-          {modelsLoading ? (
-            <div className="hint">{t('common.loading')}</div>
-          ) : models.length === 0 ? (
-            <div className="hint">{t('system_info.models_empty')}</div>
-          ) : (
-            <div className="item-list">
-              {groupedModels.map((group) => {
-                const iconSrc = getIconForCategory(group.id);
-                return (
-                  <div key={group.id} className="item-row">
-                    <div className="item-meta">
-                      <div className={styles.groupTitle}>
-                        {iconSrc && <img src={iconSrc} alt="" className={styles.groupIcon} />}
-                        <span className="item-title">{group.label}</span>
-                      </div>
-                      <div className="item-subtitle">
-                        {t('system_info.models_count', { count: group.items.length })}
-                      </div>
-                    </div>
-                    <div className={styles.modelTags}>
-                      {group.items.map((model) => (
-                        <span
-                          key={`${model.name}-${model.alias ?? 'default'}`}
-                          className={styles.modelTag}
-                          title={model.description || ''}
-                        >
-                          <span className={styles.modelName}>{model.name}</span>
-                          {model.alias && <span className={styles.modelAlias}>{model.alias}</span>}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Card>
-
-        <Card title={t('system_info.clear_login_title')}>
-          <p className={styles.sectionDescription}>{t('system_info.clear_login_desc')}</p>
-          <div className={styles.clearLoginActions}>
-            <Button variant="danger" onClick={handleClearLoginStorage}>
-              {t('system_info.clear_login_button')}
-            </Button>
-          </div>
-        </Card>
-      </div>
+  return (
+    <Panel
+      title={t('tpr.system.backup_title')}
+      description={t('tpr.system.backup_description')}
+      actions={
+        <Button variant="secondary" size="sm" onClick={() => setRestoreOpen(true)}>
+          {t('tpr.system.restore')}
+        </Button>
+      }
+    >
+      <form
+        className={styles.backupForm}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void backup();
+        }}
+      >
+        <input
+          className="input"
+          type="password"
+          value={passphrase}
+          autoComplete="new-password"
+          placeholder={t('tpr.system.passphrase')}
+          aria-label={t('tpr.system.passphrase')}
+          aria-invalid={tooShort || undefined}
+          onChange={(event) => setPassphrase(event.target.value)}
+        />
+        <Button variant="secondary" size="sm" type="submit" loading={busy} disabled={passphrase.length < MIN_PASSPHRASE}>
+          {t('tpr.system.backup')}
+        </Button>
+      </form>
+      <p className={styles.passHint} data-bad={tooShort || undefined}>
+        {t('tpr.system.passphrase_hint', { count: MIN_PASSPHRASE })}
+      </p>
 
       <Modal
-        open={requestLogModalOpen}
-        onClose={handleRequestLogClose}
-        title={t('basic_settings.request_log_title')}
+        open={restoreOpen}
+        onClose={() => setRestoreOpen(false)}
+        title={t('tpr.system.restore_title')}
         footer={
           <>
-            <Button variant="secondary" onClick={handleRequestLogClose} disabled={requestLogSaving}>
+            <Button variant="secondary" onClick={() => setRestoreOpen(false)}>
               {t('common.cancel')}
             </Button>
-            <Button
-              onClick={handleRequestLogSave}
-              loading={requestLogSaving}
-              disabled={!canEditRequestLog || !requestLogDirty}
-            >
-              {t('common.save')}
+            <Button onClick={restore} disabled={!restoreFile || !restorePassphrase} loading={busy}>
+              {t('tpr.system.restore')}
             </Button>
           </>
         }
       >
-        <div className="request-log-modal">
-          <div className="status-badge warning">{t('basic_settings.request_log_warning')}</div>
-          <ToggleSwitch
-            label={t('basic_settings.request_log_enable')}
-            labelPosition="left"
-            checked={requestLogDraft}
-            disabled={!canEditRequestLog || requestLogSaving}
-            onChange={(value) => {
-              setRequestLogDraft(value);
-              setRequestLogTouched(true);
-            }}
-          />
+        <div className={styles.restore}>
+          <p>{t('tpr.system.restore_hint')}</p>
+          <label className={styles.restoreField}>
+            <span>{t('tpr.system.restore_file')}</span>
+            <input
+              type="file"
+              onChange={(event) => setRestoreFile(event.target.files?.[0] ?? null)}
+            />
+          </label>
+          <label className={styles.restoreField}>
+            <span>{t('tpr.system.passphrase')}</span>
+            <input
+              className="input"
+              type="password"
+              autoComplete="off"
+              value={restorePassphrase}
+              onChange={(event) => setRestorePassphrase(event.target.value)}
+            />
+          </label>
         </div>
       </Modal>
+    </Panel>
+  );
+}
+
+function ModelsList() {
+  const { t } = useTranslation();
+  const apiBase = useAuthStore((state) => state.apiBase);
+  const models = useModelsStore((state) => state.models);
+  const loading = useModelsStore((state) => state.loading);
+  const error = useModelsStore((state) => state.error);
+  const fetchModels = useModelsStore((state) => state.fetchModels);
+  const resolveKeys = useApiKeysForModels();
+
+  useEffect(() => {
+    void resolveKeys()
+      .then((keys) => fetchModels(apiBase, keys[0]))
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiBase]);
+
+  const groups = classifyModels(models, { otherLabel: t('tpr.system.models_other') });
+  if (loading) return <p className={styles.checked}>{t('common.loading')}</p>;
+  if (error) return <Note tone="error">{error}</Note>;
+  if (models.length === 0) return <p className={styles.checked}>{t('system_info.models_empty')}</p>;
+  return (
+    <ul className={styles.modelGroups}>
+      {groups.map((group) => (
+        <li key={group.id}>
+          <div className={styles.modelGroupName}>{group.label}</div>
+          <div className={styles.modelTags}>
+            {group.items.map((model) => (
+              <code key={`${model.name}-${model.alias ?? ''}`}>{model.name}</code>
+            ))}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ThisBrowser() {
+  const { t } = useTranslation();
+  const logout = useAuthStore((state) => state.logout);
+  const showConfirmation = useNotificationStore((state) => state.showConfirmation);
+  const showNotification = useNotificationStore((state) => state.showNotification);
+  return (
+    <div className={styles.browser}>
+      <p>{t('tpr.system.this_browser_description')}</p>
+      <Button
+        variant="danger"
+        size="sm"
+        onClick={() =>
+          showConfirmation({
+            title: t('system_info.clear_login_title'),
+            message: t('system_info.clear_login_confirm'),
+            variant: 'danger',
+            confirmText: t('common.confirm'),
+            onConfirm: () => {
+              logout();
+              [STORAGE_KEY_AUTH, 'isLoggedIn', 'apiBase', 'apiUrl', 'managementKey'].forEach((key) =>
+                localStorage.removeItem(key)
+              );
+              showNotification(t('notification.login_storage_cleared'), 'success');
+            },
+          })
+        }
+      >
+        {t('system_info.clear_login_button')}
+      </Button>
     </div>
   );
 }
