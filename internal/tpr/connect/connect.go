@@ -503,20 +503,23 @@ func (s *session) persistKeyWindows(env Env, key string) error {
 	}
 	// Journal first, so a crash after setx can't lose the value being replaced. The
 	// first connect's value is the one to go back to, whatever later reruns replace.
-	entry := s.find(codexEnvKey)
-	if entry == nil {
+	if s.find(codexEnvKey) == nil {
 		priorType, priorValue, existed := readUserEnv(env, codexEnvKey)
 		s.journal.Entries = append(s.journal.Entries, JournalEntry{
 			Kind: kindSetx, Path: codexEnvKey, Existed: existed, PriorType: priorType, PriorValue: priorValue,
 		})
-		entry = &s.journal.Entries[len(s.journal.Entries)-1]
 	}
-	entry.AfterSHA = sha([]byte(key))
 	if err := saveJournal(s.journal); err != nil {
 		return fmt.Errorf("save the undo journal: %w", err)
 	}
 	if _, stderr, err := env.Run(context.Background(), "setx", codexEnvKey, key); err != nil {
 		return fmt.Errorf("could not set %s: %s", codexEnvKey, firstLine(stderr, err))
+	}
+	// Only now is this the value undo should recognise as connect's own. If setx failed,
+	// the journal still names the value from the last connect that worked.
+	s.find(codexEnvKey).AfterSHA = sha([]byte(key))
+	if err := saveJournal(s.journal); err != nil {
+		return fmt.Errorf("save the undo journal: %w", err)
 	}
 	fmt.Fprintln(s.out, "  changed: user environment variable "+codexEnvKey+" (open a new terminal to use it)")
 	return nil

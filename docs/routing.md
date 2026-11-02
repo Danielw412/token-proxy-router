@@ -185,3 +185,10 @@ take routing offline.
 60 seconds after an unclassified upstream error such as a WebSocket closing with 1012. Without
 it, a reconnecting WebSocket can be pinned to whichever account the router detoured it to. Real
 quota errors (429) still cool down as before.
+
+## Plan sizes in pool totals
+
+When a pool mixes plans, totals and forecasts size each account by its plan, such as Claude Max 5x
+against Pro. These sizes are estimates and providers can change them. They never affect which account
+a request goes to, and a pool where every account has the same plan is unaffected. There is no setting
+to change them yet.

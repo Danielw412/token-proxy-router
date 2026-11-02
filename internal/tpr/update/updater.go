@@ -454,7 +454,7 @@ type Result struct {
 func (u *Updater) Apply(ctx context.Context, opts ApplyOptions) (Result, error) {
 	CleanupAside(u.Target)
 	result := Result{From: u.Current}
-	release, errLock := acquireLock(time.Now())
+	release, errLock := acquireLock()
 	if errLock != nil {
 		return result, errLock
 	}
@@ -520,11 +520,16 @@ func (u *Updater) Apply(ctx context.Context, opts ApplyOptions) (Result, error) 
 // returns to the newer one instead of leaving the service down.
 func (u *Updater) Rollback() (Result, error) {
 	result := Result{From: u.Current}
-	release, errLock := acquireLock(time.Now())
+	release, errLock := acquireLock()
 	if errLock != nil {
 		return result, errLock
 	}
 	defer release()
+	// The supervisor is checking an update and may roll it back itself. Swapping the
+	// binaries under it could reinstall the broken one and lose the working one.
+	if pending := LoadPending(); pending != nil && service.SupervisorRunning() {
+		return result, errors.New("an update is still being checked; wait for it to finish, then roll back if you still need to")
+	}
 	info, ok := LoadPreviousInfo()
 	if !ok {
 		return result, errors.New("there is no previous version to go back to")

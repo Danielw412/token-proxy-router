@@ -9,9 +9,10 @@ import (
 )
 
 // planSize is a plan's quota relative to the provider's base paid plan. These are
-// the published multiples, and they only size accounts against each other in a
-// pool's totals: routing never reads them. internal/credentialweight is a traffic
-// share for weighted round robin, not a quota size, so it is not used here.
+// best estimates from how plans are marketed, and providers can change them. They
+// only size accounts against each other in a pool's totals and forecasts: routing
+// never reads them, and a pool of one plan is unaffected. internal/credentialweight
+// is a traffic share for weighted round robin, not a quota size, so it is not used.
 func planSize(provider, plan string) (size float64, label string) {
 	plan = strings.ToLower(strings.TrimSpace(plan))
 	if provider == engine.ProviderClaude {

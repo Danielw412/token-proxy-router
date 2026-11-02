@@ -68,29 +68,40 @@ export function PoolsPanel({ provider, refreshToken, onLoaded }: PoolsPanelProps
   // The server forecasts a chosen subset the same way it forecasts a whole pool.
   const selectedIds = useMemo(() => Array.from(selected).sort().join(','), [selected]);
 
+  const fetchPools = (accounts: string) =>
+    tprApi.quotaPools({
+      from: new Date(from).toISOString(),
+      to: new Date(to).toISOString(),
+      burn,
+      window: 'weekly',
+      future,
+      ...(accounts ? { accounts } : {}),
+    });
+
   const resource = useTprResource(
-    () =>
-      tprApi.quotaPools({
-        from: new Date(from).toISOString(),
-        to: new Date(to).toISOString(),
-        burn,
-        window: 'weekly',
-        future,
-        ...(selectedIds ? { accounts: selectedIds } : {}),
-      }),
+    // Tagged with its filter, because old data stays on screen while new data loads.
+    async () => ({ response: await fetchPools(selectedIds), filter: selectedIds }),
     [from, to, burn, future, refreshToken, selectedIds],
     { intervalMs: REFRESH_MS }
   );
-  const { data, loading, error, errorStatus, refresh } = resource;
+  // Page-wide counts and the account list always describe every account, so while a filter
+  // is on they come from their own request. A new account can be chosen without clearing it.
+  const unfiltered = useTprResource(
+    () => fetchPools(''),
+    [from, to, burn, future, refreshToken],
+    { intervalMs: REFRESH_MS, enabled: Boolean(selectedIds) }
+  );
+  const { loading, error, errorStatus, refresh } = resource;
+  const data = resource.data?.response ?? null;
+  const everyAccount = resource.data?.filter === '' ? resource.data.response : unfiltered.data;
 
   useEffect(() => {
-    // Page-wide counts and the account list describe everything, not the current filter.
-    if (data && !selectedIds) {
-      onLoaded?.(data);
-      setAllPools(data.pools);
+    if (everyAccount) {
+      onLoaded?.(everyAccount);
+      setAllPools(everyAccount.pools);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+  }, [everyAccount]);
 
   const accountOptions = useMemo(
     () =>

@@ -21,7 +21,9 @@ import (
 
 const (
 	testKey = "sk-tpr-testkey1234"
-	testT3  = "tpr-codex"
+	// secondKey is a key the hub also accepts, for connecting again with a new key.
+	secondKey = "sk-tpr-secondkey5678"
+	testT3    = "tpr-codex"
 )
 
 type world struct {
@@ -46,7 +48,7 @@ func newWorld(t *testing.T) *world {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		if r.Header.Get("Authorization") != "Bearer "+testKey {
+		if auth := r.Header.Get("Authorization"); auth != "Bearer "+testKey && auth != "Bearer "+secondKey {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -649,6 +651,37 @@ func TestWindowsUndoRestoresAValueThatWasAlreadyThere(t *testing.T) {
 		t.Fatal(err)
 	}
 	if w.registry["type"] != "REG_EXPAND_SZ" || w.registry["value"] != "%USERPROFILE%\\my key" {
+		t.Fatalf("not restored: %v", w.registry)
+	}
+}
+
+// A failed reconnect leaves the earlier key in place, and undo must still recognise it.
+func TestWindowsUndoAfterAFailedReconnect(t *testing.T) {
+	w := newWorld(t)
+	w.env.GOOS = "windows"
+	w.write(t, ".codex/config.toml", existingCodex)
+	w.registry = map[string]string{"type": "REG_SZ", "value": "original"}
+	w.connect(t, func(o *Options) { o.Codex = true })
+
+	run := w.env.Run
+	w.env.Run = func(ctx context.Context, name string, args ...string) ([]byte, []byte, error) {
+		if name == "setx" {
+			return nil, []byte("Access denied"), errors.New("exit status 1")
+		}
+		return run(ctx, name, args...)
+	}
+	var failed bytes.Buffer
+	if err := Run(context.Background(), w.env, Options{Hub: w.hub.URL, Key: secondKey, Out: &failed, Codex: true}); err == nil {
+		t.Fatal("the failed setx must be reported")
+	}
+	w.env.Run = run
+	if w.registry["value"] != testKey {
+		t.Fatalf("value = %v", w.registry)
+	}
+	if err := Undo(context.Background(), w.env, nil); err != nil {
+		t.Fatal(err)
+	}
+	if w.registry["value"] != "original" {
 		t.Fatalf("not restored: %v", w.registry)
 	}
 }

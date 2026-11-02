@@ -9,6 +9,8 @@ Token Proxy Router (TPR) is a friendlier fork of
 provider support and adds a new panel, built-in quota routing, recorded quota history, a
 one-command setup and one-click updates. It runs on Linux and Windows.
 
+![The Quota Management page, showing Claude and Codex pools with recorded history and forecasts](docs/images/quota.png)
+
 ## What it does
 
 - **One command to set up.** Install it and it generates safe defaults and random keys, then
