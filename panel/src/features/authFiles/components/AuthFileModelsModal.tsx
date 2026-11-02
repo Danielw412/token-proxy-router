@@ -1,3 +1,4 @@
+import { PrivateText } from '@/components/tpr/Ui';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -26,7 +27,11 @@ export function AuthFileModelsModal(props: AuthFileModelsModalProps) {
     <Modal
       open={open}
       onClose={onClose}
-      title={t('auth_files.models_title', { defaultValue: '支持的模型' }) + ` - ${fileName}`}
+      title={
+        <>
+          {t('auth_files.models_title')} - <PrivateText text={fileName} />
+        </>
+      }
       footer={
         <Button variant="secondary" onClick={onClose}>
           {t('common.close')}

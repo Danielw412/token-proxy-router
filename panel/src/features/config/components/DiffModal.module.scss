@@ -79,7 +79,7 @@ $diff-hunk-color: #388bfd;
   align-items: center;
   gap: $spacing-sm;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   font-family: $diff-mono;
 }
 
@@ -190,7 +190,7 @@ $diff-hunk-color: #388bfd;
   flex-shrink: 0;
   text-align: center;
   user-select: none;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 // ── Code text ───────────────────────────────────────────

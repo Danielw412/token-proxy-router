@@ -247,9 +247,10 @@ const interpolate = (points: TimedValue[], at: number): number | null => {
     const before = points[index - 1];
     const after = points[index];
     if (at >= before.at && at <= after.at) {
+      // A reading is known exactly at its own time, even right beside a hole.
+      if (at === after.at) return after.value;
+      if (at === before.at) return before.value;
       if (before.value === null || after.value === null) return null;
-      if (after.at === before.at) return after.value;
-      // Rising forecast segments are steps, so hold the lower value until the jump.
       const ratio = (at - before.at) / (after.at - before.at);
       return before.value + (after.value - before.value) * ratio;
     }
@@ -288,20 +289,44 @@ const LABEL_HEIGHT = 13;
 /** Places "+100%" above each jump. A label is lifted, or dropped, rather than overlapped. */
 export const layoutResetLabels = (
   resets: Array<{ at: number; deltaPercent: number; projected: boolean; top: number | null }>,
-  scales: ChartScales
+  scales: ChartScales,
+  options: { now?: number; compact?: boolean } = {}
 ): ResetLabel[] => {
+  const { now, compact = false } = options;
+  // Several accounts often reset at the same moment, which reads as one jump.
+  const merged = new Map<number, (typeof resets)[number]>();
+  resets.forEach((reset) => {
+    const key = Math.round(reset.at / 60_000);
+    const existing = merged.get(key);
+    if (existing) {
+      merged.set(key, {
+        ...existing,
+        deltaPercent: existing.deltaPercent + reset.deltaPercent,
+        top: existing.top ?? reset.top,
+      });
+    } else {
+      merged.set(key, reset);
+    }
+  });
   const placed: ResetLabel[] = [];
+  // On narrow charts labels never stack, so most of them drop out rather than pile up.
   const collides = (x: number, y: number) =>
     placed.some(
-      (label) => Math.abs(label.x - x) < LABEL_WIDTH && Math.abs(label.y - y) < LABEL_HEIGHT
-    );
-  resets
+      (label) =>
+        Math.abs(label.x - x) < LABEL_WIDTH &&
+        (compact || Math.abs(label.y - y) < LABEL_HEIGHT)
+    ) ||
+    // The "Now" caption sits just above the plot.
+    (now !== undefined &&
+      Math.abs(scales.x(now) - x) < LABEL_WIDTH * 0.75 &&
+      y < scales.plotTop + 2);
+  Array.from(merged.values())
     .filter((reset) => reset.at >= scales.from && reset.at <= scales.to && reset.deltaPercent !== 0)
     .sort((a, b) => a.at - b.at)
     .forEach((reset, index) => {
       const x = clamp(scales.x(reset.at), scales.plotLeft + LABEL_WIDTH / 2, scales.plotRight - LABEL_WIDTH / 2);
       const base = (reset.top === null ? scales.plotTop + 14 : scales.y(reset.top)) - 7;
-      const candidates = [base, base - LABEL_HEIGHT, base + 2 * LABEL_HEIGHT];
+      const candidates = compact ? [base] : [base, base - LABEL_HEIGHT, base + 2 * LABEL_HEIGHT];
       const y = candidates.find(
         (candidate) => candidate >= scales.plotTop - 8 && candidate <= scales.plotBottom - 2 && !collides(x, candidate)
       );

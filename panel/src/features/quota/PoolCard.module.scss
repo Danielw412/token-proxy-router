@@ -160,7 +160,6 @@
   min-width: 0;
   overflow: hidden;
   color: var(--text-primary);
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -172,8 +171,9 @@
 
 .accountMeta {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 8px;
+  gap: 0 8px;
   color: var(--text-tertiary);
   font-size: 12px;
   white-space: nowrap;

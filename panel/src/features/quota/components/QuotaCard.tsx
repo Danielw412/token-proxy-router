@@ -3,6 +3,7 @@
  * Claude observations remain visible while refreshing or after a failed read.
  */
 
+import { PrivateText, usePrivateAttr } from '@/components/tpr/Ui';
 import { useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconRefreshCw } from '@/components/ui/icons';
@@ -56,6 +57,7 @@ export function QuotaCard(props: QuotaCardProps) {
   const retainedClaudeUsage =
     entry.type === 'claude' && hasClaudeUsageData(quota as ClaudeQuotaState | undefined);
   const displayName = getQuotaDisplayName(file);
+  const displayTitle = usePrivateAttr(displayName);
 
   // Capture the entrance delay only at mount, without a render-time ref read.
   const [mountEntranceDelayMs] = useState<number | null>(entranceDelayMs ?? null);
@@ -131,8 +133,8 @@ export function QuotaCard(props: QuotaCardProps) {
             <span className={styles.iconFallback}>{typeLabel.slice(0, 1).toUpperCase()}</span>
           )}
         </span>
-        <span className={styles.fileName} title={displayName}>
-          {displayName}
+        <span className={styles.fileName} title={displayTitle}>
+          <PrivateText text={displayName} />
         </span>
       </header>
 

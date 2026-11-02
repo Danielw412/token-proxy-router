@@ -162,8 +162,8 @@ export function PoolChart({
         top: after ?? null,
       };
     });
-    return layoutResetLabels(resets, scales);
-  }, [mode, pool.resets, scales, visibleProjected, visibleRecorded]);
+    return layoutResetLabels(resets, scales, { now, compact: narrow });
+  }, [mode, narrow, now, pool.resets, scales, visibleProjected, visibleRecorded]);
 
   const nowVisible = now >= from && now <= to;
   const nowValue = useMemo(() => {

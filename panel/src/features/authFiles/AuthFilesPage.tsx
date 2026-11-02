@@ -32,7 +32,6 @@ import { OAuthExcludedCard } from '@/features/authFiles/components/OAuthExcluded
 import { OAuthModelAliasCard } from '@/features/authFiles/components/OAuthModelAliasCard';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { VaultHeader } from '@/features/authFiles/components/VaultHeader';
-import { VaultPulse } from '@/features/authFiles/components/VaultPulse';
 import { invalidateAuthFileDerivedCaches } from '@/features/authFiles/cacheInvalidation';
 import {
   buildWildcardSearch,
@@ -610,8 +609,6 @@ export function AuthFilesPage() {
         onChange={handleFileChange}
       />
 
-      <VaultPulse files={files} statusBarCache={statusBarCache} />
-
       <section className={styles.workbench} aria-label={t('auth_files.title_section')}>
         <ProviderTabs
           types={existingTypes}
@@ -683,7 +680,7 @@ export function AuthFilesPage() {
                 >
                   {t('auth_files.upload_button')}
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/oauth')}>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/accounts?add=1')}>
                   {t('auth_files.empty_oauth_link')}
                 </Button>
               </div>

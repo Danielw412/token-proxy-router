@@ -409,7 +409,7 @@ const handleUpstream = async (
   if (path === '/config') return send(res, 200, configJson(zero));
   if (path === '/config.yaml') return send(res, 200, configYaml(zero), 'text/yaml');
   if (path === '/config/access/api-keys') {
-    return send(res, 200, { 'api-keys': zero ? [] : ['sk-demo-a1b2c3d4', 'sk-demo-e5f6a7b8'] });
+    return send(res, 200, zero ? [] : ['sk-demo-a1b2c3d4', 'sk-demo-e5f6a7b8']);
   }
   if (path === '/credentials' || path === '/credentials/refresh') {
     return send(res, 200, authFiles(now, zero));

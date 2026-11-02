@@ -38,7 +38,7 @@
     "alias": "Alias",
     "failure": "Failure",
     "unknown_error": "Unknown error",
-    "quota_update_required": "Please update the CPA version or check for updates",
+    "quota_update_required": "Please update Token Proxy Router or check for updates",
     "quota_check_credential": "Please check the credential status",
     "copy": "Copy",
     "expand": "Expand",
@@ -110,7 +110,7 @@
     "plugins": "Plugins",
     "plugin_store": "Plugin Store",
     "config_management": "Config Panel",
-    "logs": "Logs Viewer",
+    "logs": "Logs",
     "system_info": "Token Proxy Router Info"
   },
   "nav_groups": {
@@ -715,9 +715,9 @@
     "model_count": "{{count}} models disabled",
     "list_empty_all": "No provider model disablement yet; click “Add Disablement” to create one.",
     "provider_required": "Please enter a provider first",
-    "upgrade_required": "Current CPA version does not support OAuth model disablement. Please upgrade.",
+    "upgrade_required": "This server version does not support OAuth model disablement. Please upgrade.",
     "upgrade_required_title": "Please upgrade Token Proxy Router",
-    "upgrade_required_desc": "The current server version does not support fetching OAuth model disablement. Please upgrade to the latest CPA (Token Proxy Router) version and try again."
+    "upgrade_required_desc": "The current server version does not support fetching OAuth model disablement. Please upgrade to the latest version (Token Proxy Router) version and try again."
   },
   "excluded_models": {
     "trigger_summary": "{{excluded}} excluded · {{available}} available",
@@ -764,7 +764,7 @@
     "provider_placeholder": "e.g. codex / vertex",
     "provider_hint": "Defaults to the current filter; pick an existing provider or type a new name.",
     "model_source_loading": "Loading models...",
-    "model_source_unsupported": "The current CPA version does not support fetching model lists (manual input still works).",
+    "model_source_unsupported": "This server version does not support fetching model lists (manual input still works).",
     "model_source_loaded": "{{count}} models loaded. Use the dropdown in 'Source model name', or type custom values. Saving an empty list removes that provider. Enable 'Keep original' to keep the original name while adding the alias.",
     "alias_label": "Model aliases",
     "alias_name_placeholder": "Source model name",
@@ -1002,7 +1002,7 @@
     "clear_search": "Clear search",
     "reading_enabled": "Continuous reading",
     "filter_load_more": "Show more matching logs",
-    "title": "Logs Viewer",
+    "title": "Logs",
     "refresh_button": "Refresh Logs",
     "clear_button": "Clear Logs",
     "fullscreen_button": "Full Screen",
@@ -1027,9 +1027,9 @@
     "request_log_download_success": "Request log downloaded successfully",
     "empty_title": "No Logs Available",
     "empty_desc": "When \"Enable logging to file\" is enabled, logs will be displayed here",
-    "cpa_file_logging_required": "The connected runtime is CPA. Log viewing requires logging to file to be enabled first.",
+    "cpa_file_logging_required": "Log viewing requires logging to file to be enabled first.",
     "cpa_file_logging_required_title": "File logging is required",
-    "cpa_file_logging_required_desc": "CPA reads this log view from local log files. Enable logging-to-file in the config, then refresh.",
+    "cpa_file_logging_required_desc": "This log view reads from local log files. Enable logging-to-file in the config, then refresh.",
     "file_logging_required": "This logs endpoint requires logging to file before file logs can be read.",
     "file_logging_required_title": "File logging is required",
     "file_logging_required_desc": "This logs endpoint reads local log files. Enable logging-to-file in the config, then refresh.",
@@ -1134,7 +1134,7 @@
         },
         "discoveryServiceName": {
           "label": "Service name prefix",
-          "hint": "The backend appends a short ID. Empty uses CPA-<ShortID>."
+          "hint": "The backend appends a short ID. Empty uses TPR-<ShortID>."
         },
         "discoveryServiceType": {
           "label": "Service type",
@@ -2455,8 +2455,7 @@
     },
     "router": {
       "title": "Routing",
-      "meta_one": "{{accounts}} accounts · {{sessions}} active sessions",
-      "meta_other": "{{accounts}} accounts · {{sessions}} active sessions",
+      "meta": "{{accounts}} accounts · {{sessions}} sessions",
       "recheck": "Re-check quota",
       "pool_filter": "Pool",
       "intro": "Each pool has one current account for new conversations. A conversation stays on its account while its prompt cache is warm, then moves if a better account is available.",
@@ -2747,8 +2746,7 @@
     },
     "dashboard": {
       "title": "Dashboard",
-      "meta_one": "{{pools}} pools · {{accounts}} accounts",
-      "meta_other": "{{pools}} pools · {{accounts}} accounts",
+      "meta": "{{pools}} pools · {{accounts}} accounts",
       "empty_title": "No accounts yet",
       "empty_description": "Add your first Claude or Codex account and this page will show quota, routing and traffic.",
       "empty_action": "Open Quick Start",
@@ -2759,8 +2757,7 @@
       "requests": "Requests",
       "requests_sub": "Last {{minutes}} minutes",
       "success_rate": "Success rate",
-      "success_sub_one": "{{failures}} failed",
-      "success_sub_other": "{{failures}} failed",
+      "success_sub": "{{failures}} failed",
       "alerts": "Active alerts",
       "alerts_none": "Nothing needs attention",
       "traffic_title": "Traffic",

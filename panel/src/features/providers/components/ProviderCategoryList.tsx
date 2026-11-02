@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PROVIDER_LOGOS } from '../brandLogos';
 import type { ProviderBrand, ProviderGroup } from '../types';
@@ -9,8 +10,17 @@ interface ProviderCategoryListProps {
   onSelect: (brand: ProviderBrand) => void;
 }
 
+const PRIMARY_BRANDS: readonly ProviderBrand[] = ['claude', 'codex'];
+
 export function ProviderCategoryList({ groups, activeBrand, onSelect }: ProviderCategoryListProps) {
   const { t } = useTranslation();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const primaryGroups = groups.filter((group) => PRIMARY_BRANDS.includes(group.id));
+  const otherGroups = groups.filter((group) => !PRIMARY_BRANDS.includes(group.id));
+  // Keep the expander open when the selected provider, or any configured one, lives inside it.
+  const showOthers =
+    moreOpen ||
+    otherGroups.some((group) => group.id === activeBrand || group.resources.length > 0);
 
   const renderGroups = (items: ProviderGroup[]) => (
     <div className={styles.list}>
@@ -97,7 +107,20 @@ export function ProviderCategoryList({ groups, activeBrand, onSelect }: Provider
     <div className={styles.stack}>
       <aside className={styles.aside}>
         <p className={styles.eyebrow}>{t('providersPage.categories.title')}</p>
-        {renderGroups(groups)}
+        {renderGroups(primaryGroups)}
+        {otherGroups.length > 0 && (
+          <>
+            <button
+              type="button"
+              className={styles.moreToggle}
+              aria-expanded={showOthers}
+              onClick={() => setMoreOpen((value) => !value)}
+            >
+              {t('tpr.common.more_providers')}
+            </button>
+            {showOthers ? renderGroups(otherGroups) : null}
+          </>
+        )}
       </aside>
     </div>
   );

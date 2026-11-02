@@ -38,34 +38,34 @@ export interface BasicSettings {
 const toNumber = (value: unknown, fallback: number): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 
-/** The essentials, read from the same YAML document the advanced editor writes. */
+const PORT = ['server', 'port'];
+const LOGS = ['observability', 'logs'];
+const RETRY = ['routing', 'retry', 'request-retry'];
+
+/** The essentials, read from the same v8 YAML document the advanced editor writes. */
 export const readBasicSettings = (yaml: string): BasicSettings => {
   const doc = parseDocument(yaml);
-  const read = (...path: string[]) => doc.getIn(path);
+  const strategy = doc.getIn(['routing', 'strategy']);
   return {
-    port: toNumber(read('port'), 8317),
-    debug: read('debug') === true,
-    loggingToFile: read('logging-to-file') === true,
-    requestLog: read('request-log') === true,
-    routingStrategy: typeof read('routing', 'strategy') === 'string' ? String(read('routing', 'strategy')) : 'round-robin',
-    sessionAffinity: read('routing', 'session-affinity') === true,
-    requestRetry: toNumber(read('routing', 'retry', 'request-retry'), toNumber(read('request-retry'), 3)),
+    port: toNumber(doc.getIn(PORT), 8317),
+    debug: doc.getIn([...LOGS, 'debug']) === true,
+    loggingToFile: doc.getIn([...LOGS, 'logging-to-file']) === true,
+    requestLog: doc.getIn([...LOGS, 'request-log']) === true,
+    routingStrategy: typeof strategy === 'string' ? strategy : 'round-robin',
+    sessionAffinity: doc.getIn(['routing', 'session-affinity']) === true,
+    requestRetry: toNumber(doc.getIn(RETRY), 3),
   };
 };
 
 export const writeBasicSettings = (yaml: string, next: BasicSettings): string => {
   const doc = parseDocument(yaml);
-  doc.setIn(['port'], next.port);
-  doc.setIn(['debug'], next.debug);
-  doc.setIn(['logging-to-file'], next.loggingToFile);
-  doc.setIn(['request-log'], next.requestLog);
+  doc.setIn(PORT, next.port);
+  doc.setIn([...LOGS, 'debug'], next.debug);
+  doc.setIn([...LOGS, 'logging-to-file'], next.loggingToFile);
+  doc.setIn([...LOGS, 'request-log'], next.requestLog);
   doc.setIn(['routing', 'strategy'], next.routingStrategy);
   doc.setIn(['routing', 'session-affinity'], next.sessionAffinity);
-  if (doc.hasIn(['request-retry']) && !doc.hasIn(['routing', 'retry', 'request-retry'])) {
-    doc.setIn(['request-retry'], next.requestRetry);
-  } else {
-    doc.setIn(['routing', 'retry', 'request-retry'], next.requestRetry);
-  }
+  doc.setIn(RETRY, next.requestRetry);
   return doc.toString();
 };
 

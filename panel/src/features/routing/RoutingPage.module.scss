@@ -38,10 +38,10 @@ $label-x: $tier-pad + 1px + $index-size + 10px; // where tier names begin
 
 .title {
   margin: 0;
-  font-size: clamp(26px, 3.2vw, 30px);
-  line-height: 1.15;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.012em;
   color: var(--text-primary);
 }
 
@@ -249,7 +249,7 @@ $label-x: $tier-pad + 1px + $index-size + 10px; // where tier names begin
   gap: 12px;
   padding: 14px $tier-pad $tier-pad;
   border: 1px solid var(--border-color);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--bg-primary);
   transition:
     border-color var(--dur-hover) var(--ease-out-strong),
@@ -292,7 +292,7 @@ $label-x: $tier-pad + 1px + $index-size + 10px; // where tier names begin
 
 .tierName {
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.005em;
   color: var(--text-primary);
 }
@@ -402,7 +402,7 @@ $label-x: $tier-pad + 1px + $index-size + 10px; // where tier names begin
   flex-direction: column;
   padding: 20px;
   border: 1px solid var(--border-color);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--bg-primary);
 
   @media (max-width: $layout-stack) {
@@ -420,7 +420,7 @@ $label-x: $tier-pad + 1px + $index-size + 10px; // where tier names begin
 .policyTitle {
   margin: 0;
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text-primary);
 }
@@ -455,8 +455,7 @@ $label-x: $tier-pad + 1px + $index-size + 10px; // where tier names begin
   margin: 0;
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--text-tertiary);
+    color: var(--text-tertiary);
 }
 
 /* Vertical segmented control: a recessed track with one raised selection. */

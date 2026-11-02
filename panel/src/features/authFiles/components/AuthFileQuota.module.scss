@@ -113,7 +113,7 @@ button.quotaMessageAction {
 }
 
 .quotaPercent {
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
@@ -206,7 +206,7 @@ button.quotaMessageAction {
 .premiumPlanValue {
   font-family: $font-mono;
   font-size: $quota-font-size;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--amber-text);
 }
 
@@ -219,7 +219,7 @@ button.quotaMessageAction {
 .elitePlanValue {
   font-family: $font-mono;
   font-size: $quota-font-size;
-  font-weight: 650;
+  font-weight: 600;
   color: #4f5a3c;
 }
 
@@ -252,8 +252,7 @@ button.quotaMessageAction {
   font-family: $font-mono;
   font-size: $quota-font-size;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: var(--text-tertiary);
 }
 
@@ -278,8 +277,7 @@ button.quotaMessageAction {
   font-family: $font-mono;
   font-size: $quota-font-size;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: var(--text-tertiary);
 }
 

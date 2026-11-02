@@ -57,7 +57,7 @@
   font-size: 12px;
   line-height: 1.5;
   white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--floating-shadow);
   z-index: $z-dropdown;
   pointer-events: none;
   color: var(--text-primary);

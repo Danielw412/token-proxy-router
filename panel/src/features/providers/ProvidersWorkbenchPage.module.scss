@@ -4,9 +4,8 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   width: 100%;
-  padding: 24px;
   box-sizing: border-box;
 }
 
@@ -38,9 +37,4 @@
   margin-top: 4px;
 }
 
-@media (max-width: 768px) {
-  .page {
-    padding: 16px;
-    gap: 16px;
-  }
-}
+

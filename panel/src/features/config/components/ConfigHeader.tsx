@@ -36,9 +36,6 @@ export function ConfigHeader({
   return (
     <header className={styles.header}>
       <div className={styles.copy}>
-        <h1 className={styles.title} data-reveal>
-          {t('config_management.title')}
-        </h1>
         <p className={styles.meta} data-reveal>
           {meta.map((segment, index) => (
             <Fragment key={segment.key}>

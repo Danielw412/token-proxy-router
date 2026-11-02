@@ -1,3 +1,4 @@
+import { PrivateText } from '@/components/tpr/Ui';
 import { useEffect, useId, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconEllipsis, IconGripVertical, IconLock } from '@/components/ui/icons';
@@ -206,7 +207,9 @@ export function MemberCard({
       </span>
 
       <span className={styles.body}>
-        <span className={styles.name}>{member.name}</span>
+        <span className={styles.name}>
+          <PrivateText text={member.name} />
+        </span>
         <span className={styles.kind}>
           {kindLabel}
           {showWeight ? (

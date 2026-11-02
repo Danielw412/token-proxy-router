@@ -15,7 +15,12 @@ const interpolationTokens = (value: string): string[] => value.match(/\{\{[^}]+\
 
 describe('Vietnamese locale', () => {
   test('covers every current English key with matching interpolation tokens', async () => {
-    const english = flattenLeaves(await Bun.file('src/i18n/locales/en.json').json());
+    // TPR strings ship in English only and fall back at runtime.
+    const english = Object.fromEntries(
+      Object.entries(flattenLeaves(await Bun.file('src/i18n/locales/en.json').json())).filter(
+        ([key]) => !key.startsWith('tpr.')
+      )
+    );
     const vietnamese = flattenLeaves(await Bun.file('src/i18n/locales/vi.json').json());
     const missing = Object.keys(english).filter((key) => !(key in vietnamese));
     const mismatches = Object.keys(english)

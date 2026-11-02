@@ -12,6 +12,7 @@
  * quotaTimeline.ts.)
  */
 
+import { PrivateText, usePrivateAttr } from '@/components/tpr/Ui';
 import { useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -327,6 +328,7 @@ interface LaneProps {
 }
 
 function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneProps) {
+  const laneTitle = usePrivateAttr(lane.displayName);
   const { t, i18n } = useTranslation();
 
   const windows = useMemo(
@@ -357,8 +359,8 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
       <div className={styles.laneHead}>
         <div className={styles.laneTop}>
           <span className={styles.laneDot} />
-          <span className={styles.laneName} title={lane.displayName}>
-            {lane.displayName}
+          <span className={styles.laneName} title={laneTitle}>
+            <PrivateText text={lane.displayName} />
           </span>
           {periodLabel && <span className={styles.lanePeriod}>{periodLabel}</span>}
         </div>
@@ -407,7 +409,7 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
                 key={window.startMs}
                 className={`${styles.window} ${styles[`window${capitalize(window.state)}`]}`}
                 style={{ left: `${window.leftPercent}%`, width: `${window.widthPercent}%` }}
-                title={`${lane.displayName}\n${formatDay(window.startMs)} ${formatTime(
+                title={`${laneTitle}\n${formatDay(window.startMs)} ${formatTime(
                   window.startMs
                 )} → ${formatDay(window.endMs)} ${formatTime(window.endMs)}${
                   window.remaining !== null ? `\n${window.remaining}% remaining` : ''

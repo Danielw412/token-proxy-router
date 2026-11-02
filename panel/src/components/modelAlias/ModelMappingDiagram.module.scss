@@ -77,7 +77,6 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
-  text-transform: uppercase;
   margin-bottom: 8px;
   padding: 0 4px;
 }
@@ -96,12 +95,12 @@
   max-width: 280px;
   position: relative;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--floating-shadow);
 
   &:hover {
     border-color: var(--primary-color);
     transform: translateY(-1px);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--floating-shadow);
     z-index: 10;
   }
 
@@ -247,7 +246,7 @@
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--floating-shadow);
   z-index: 9999;
   min-width: 120px;
   overflow: hidden;

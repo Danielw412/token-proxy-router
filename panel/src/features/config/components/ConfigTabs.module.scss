@@ -25,27 +25,16 @@
   border: 0;
   background: none;
   cursor: pointer;
-  padding: 8px 12px 11px;
-  border-radius: 8px 8px 0 0;
+  padding: 6px 11px;
+  border-radius: 8px;
   font-size: 13px;
-  font-weight: 550;
+  font-weight: 500;
   color: var(--text-secondary);
   white-space: nowrap;
   transition:
     color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
     background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
 
-  &::after {
-    content: '';
-    position: absolute;
-    left: 10px;
-    right: 10px;
-    bottom: -1px;
-    height: 2px;
-    border-radius: $radius-full;
-    background: transparent;
-    transition: background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
-  }
 
   &:disabled {
     cursor: not-allowed;
@@ -65,17 +54,12 @@
 @media (hover: hover) and (pointer: fine) {
   .tab:hover:not(:disabled) {
     color: var(--text-primary);
-    background: color-mix(in srgb, var(--bg-tertiary) 55%, transparent);
   }
 }
 
 .tabActive {
   color: var(--text-primary);
-  font-weight: 650;
-
-  &::after {
-    background: var(--text-primary);
-  }
+  background: var(--bg-tertiary);
 
   /* 整体禁用（保存中）时激活 tab 仍保持完整对比度 */
   &:disabled {
@@ -100,7 +84,7 @@
 .tabBadge {
   font-family: $font-mono;
   font-size: 10.5px;
-  font-weight: 650;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1.6;
   color: var(--viz-failure);
@@ -119,8 +103,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tab,
-  .tab::after {
+  .tab {
     transition: none;
   }
 

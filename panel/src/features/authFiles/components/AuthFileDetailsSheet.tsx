@@ -1,3 +1,4 @@
+import { PrivateText } from '@/components/tpr/Ui';
 import { useCallback, useMemo, type MouseEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
@@ -127,7 +128,7 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
       size="md"
       closeDisabled={editor?.saving === true}
       eyebrow={t('auth_files.prefix_proxy_button')}
-      title={editor?.fileName ?? ''}
+      title={<PrivateText text={editor?.fileName ?? ''} />}
       footer={
         <>
           <Button

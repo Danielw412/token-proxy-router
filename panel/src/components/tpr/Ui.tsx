@@ -404,6 +404,12 @@ export const splitEmails = (text: string): Array<{ text: string; email: boolean 
   return parts;
 };
 
+/** For attributes such as `title`, where a blur can't apply: replaces emails while hidden. */
+export function usePrivateAttr(text: string): string {
+  const show = usePrivacyStore((state) => state.showEmails);
+  return show ? text : text.replace(EMAIL_PATTERN, '•••@•••');
+}
+
 /** Plain text in which any email found is treated like PrivateEmail, such as file names. */
 export function PrivateText({ text }: { text: string }) {
   return (

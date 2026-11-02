@@ -44,12 +44,12 @@
   font-family: $font-mono;
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
 }
 
 /* 百分比穿墨色而非填充色 —— 文字不承担状态编码，颜色留给水位条 */
 .quotaPercent {
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
@@ -157,9 +157,8 @@
 .antigravityQuotaGroupTitle {
   font-family: $font-mono;
   font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0;
   color: var(--text-tertiary);
 }
 
@@ -294,7 +293,7 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 12px;
   padding: 2px 8px;
   border-radius: 999px;
@@ -502,9 +501,9 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 12px;
-  letter-spacing: 0.03em;
+  letter-spacing: 0;
   /* 2px 金边，内边距各收 1px，外径与金卡等高 */
   padding: 1px 8px;
   border-radius: 999px;

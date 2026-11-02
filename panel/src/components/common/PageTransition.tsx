@@ -17,10 +17,10 @@ interface PageTransitionProps {
 }
 
 // Premium personality: enter > exit, decelerate-in / accelerate-out.
-const VERTICAL_ENTER_DURATION = 0.36;
-const VERTICAL_EXIT_DURATION = 0.22;
-const VERTICAL_ENTER_DISTANCE = 28;
-const VERTICAL_EXIT_DISTANCE = 12;
+const VERTICAL_ENTER_DURATION = 0.14;
+const VERTICAL_EXIT_DURATION = 0.08;
+const VERTICAL_ENTER_DISTANCE = 4;
+const VERTICAL_EXIT_DISTANCE = 0;
 const REDUCED_MOTION_DURATION = 0.15;
 
 const IOS_TRANSITION_DURATION = 0.44;
@@ -99,6 +99,21 @@ export function PageTransition({
     if (typeof document === 'undefined') return null;
     return document.scrollingElement as HTMLElement | null;
   }, [scrollContainerRef]);
+
+  // Same page, new query (for example ?view=files): the page stays mounted and sees the new search.
+  useLayoutEffect(() => {
+    if (isAnimating || currentLayerPathname !== location.pathname) return;
+    setLayers((prev) => {
+      const current = prev.find((layer) => layer.status === 'current');
+      if (
+        !current ||
+        (current.location.search === location.search && current.location.hash === location.hash)
+      ) {
+        return prev;
+      }
+      return prev.map((layer) => (layer === current ? { ...layer, location } : layer));
+    });
+  }, [currentLayerPathname, isAnimating, location]);
 
   useLayoutEffect(() => {
     if (isAnimating) return;

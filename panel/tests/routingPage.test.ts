@@ -167,7 +167,7 @@ describe('routing board rendering', () => {
     expect(card).toContain('@media (prefers-reduced-motion: reduce)');
     expect(bar).toContain('@media (prefers-reduced-motion: reduce)');
     expect(readFileSync('src/router/MainRoutes.tsx', 'utf8')).toContain(
-      "{ path: '/routing', element: <RoutingPage /> }"
+      "{ path: '/routing', element: <RouterPage /> }"
     );
     expect(readFileSync('src/components/layout/MainLayout.tsx', 'utf8')).toContain(
       "labelKey: 'nav.routing'"

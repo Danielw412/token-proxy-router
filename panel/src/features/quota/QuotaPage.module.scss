@@ -208,7 +208,7 @@
   font-family: $font-mono;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   color: var(--text-tertiary);
   white-space: nowrap;
 }
@@ -224,7 +224,8 @@
 .pillRow {
   display: flex;
   align-items: center;
-  gap: 4px 8px;
+  flex-wrap: wrap;
+  gap: 2px 8px;
   min-width: 0;
 
   > :first-child {

@@ -35,9 +35,9 @@ const CLAUDE_ACCOUNTS: AccountSeed[] = [
 ];
 
 const CODEX_ACCOUNTS: AccountSeed[] = [
-  { id: 'codex-alice', label: 'Alice', email: 'alice@example.com', plan: 'pro', weight: 1, remaining: 96, resetInHours: 150 },
-  { id: 'codex-grace', label: 'Grace', email: 'grace@example.com', plan: 'plus', weight: 1, remaining: 85, resetInHours: 150 },
-  { id: 'codex-heidi', label: 'Heidi', email: 'heidi@example.com', plan: 'pro max', weight: 2.5, remaining: 96, resetInHours: 150 },
+  { id: 'codex-alice', label: 'Alice', email: 'alice@example.com', plan: 'pro', weight: 1, remaining: 96, resetInHours: 167 },
+  { id: 'codex-grace', label: 'Grace', email: 'grace@example.com', plan: 'plus', weight: 1, remaining: 85, resetInHours: 167 },
+  { id: 'codex-heidi', label: 'Heidi', email: 'heidi@example.com', plan: 'pro max', weight: 2.5, remaining: 96, resetInHours: 167 },
 ];
 
 export interface QuotaQuery {
@@ -125,6 +125,12 @@ const buildProjection = (shape: PoolShape, now: number, to: number, future: stri
     }
   });
   resetTimes.sort((a, b) => a.at - b.at);
+  const mergedResets: Array<{ at: number; delta: number }> = [];
+  resetTimes.forEach((reset) => {
+    const last = mergedResets[mergedResets.length - 1];
+    if (last && last.at === reset.at) last.delta += reset.delta;
+    else mergedResets.push({ ...reset });
+  });
 
   const remaining = shape.accounts.reduce(
     (sum, account) => sum + (account.remaining * account.weight),
@@ -153,7 +159,7 @@ const buildProjection = (shape: PoolShape, now: number, to: number, future: stri
     cursor = target;
   };
 
-  for (const reset of resetTimes) {
+  for (const reset of mergedResets) {
     burnTo(reset.at);
     const next = Math.min(capacity, value + reset.delta);
     resets.push({ at: iso(reset.at), delta_percent: Math.round(next - value), projected: true });
@@ -552,6 +558,20 @@ export const connectSnippets = (keyId: string, hubUrl: string) => {
   };
 };
 
+const recentRequests = (now: number, seed: number) => {
+  const random = seeded(seed);
+  return Array.from({ length: 20 }, (_, index) => {
+    const start = new Date(now - (20 - index) * 10 * 60_000);
+    const end = new Date(start.getTime() + 10 * 60_000);
+    const label = (date: Date) => `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    return {
+      time: `${label(start)}-${label(end)}`,
+      success: Math.round(random() * 9),
+      failed: random() > 0.92 ? 1 : 0,
+    };
+  });
+};
+
 const authFile = (
   provider: string,
   account: AccountSeed,
@@ -572,6 +592,9 @@ const authFile = (
   unavailable: status.unavailable ?? false,
   last_refresh: iso(now - (index + 1) * HOUR),
   modtime: iso(now - (index + 1) * DAY),
+  success: 40 + index * 3,
+  failed: index % 4 === 0 ? 1 : 0,
+  recent_requests: recentRequests(now, 11 + index),
 });
 
 export const authFiles = (now: number, zero = false) => ({
@@ -587,38 +610,37 @@ export const authFiles = (now: number, zero = false) => ({
 });
 
 export const configJson = (zero = false) => ({
-  host: '127.0.0.1',
-  port: 8317,
-  debug: false,
-  'logging-to-file': true,
-  'request-log': false,
-  'usage-statistics-enabled': true,
-  'request-retry': 3,
-  'max-retry-interval': 30,
-  'proxy-url': '',
-  'ws-auth': false,
-  'force-model-prefix': false,
-  routing: { strategy: 'round-robin' },
-  'api-keys': zero ? [] : ['sk-demo-a1b2c3d4', 'sk-demo-e5f6a7b8'],
-  'claude-api-key': [],
-  'codex-api-key': [],
-  'gemini-api-key': [],
-  'openai-compatibility': [],
-  'quota-exceeded': { 'switch-project': true, 'switch-preview-model': true },
+  server: { host: '127.0.0.1', port: 8317 },
+  observability: {
+    logs: { debug: false, 'logging-to-file': true, 'request-log': false, 'logs-max-total-size-mb': 512 },
+  },
+  access: { 'api-keys': zero ? [] : ['sk-demo-a1b2c3d4', 'sk-demo-e5f6a7b8'] },
+  routing: {
+    strategy: 'round-robin',
+    'session-affinity': true,
+    retry: { 'request-retry': 3, 'max-retry-credentials': 0, 'max-retry-interval': 30 },
+  },
+  'api-keys': {},
 });
 
 export const configYaml = (zero = false) => `# Token Proxy Router configuration (demo data)
-host: "127.0.0.1"
-port: 8317
-debug: false
-logging-to-file: true
-request-log: false
-usage-statistics-enabled: true
-request-retry: 3
-max-retry-interval: 30
+server:
+  host: "127.0.0.1"
+  port: 8317
+observability:
+  logs:
+    debug: false
+    logging-to-file: true
+    request-log: false
+access:
+  api-keys:${zero ? ' []' : '\n    - sk-demo-a1b2c3d4\n    - sk-demo-e5f6a7b8'}
 routing:
   strategy: round-robin
-api-keys:${zero ? ' []' : '\n  - sk-demo-a1b2c3d4\n  - sk-demo-e5f6a7b8'}
+  session-affinity: true
+  retry:
+    request-retry: 3
+    max-retry-credentials: 0
+    max-retry-interval: 30
 `;
 
 export const logLines = (now: number) =>

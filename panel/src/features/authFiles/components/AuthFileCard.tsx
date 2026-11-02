@@ -29,6 +29,7 @@ import {
   type AuthFileQuotaFilter,
   type ResolvedTheme,
 } from '@/features/authFiles/constants';
+import { PrivateText, usePrivateAttr } from '@/components/tpr/Ui';
 import { deriveAuthFileIdentity } from '@/features/authFiles/identity';
 import { resolveAuthFileQuotaType } from '@/features/authFiles/logic';
 import type { AuthFileStatusBarData } from '@/features/authFiles/hooks/useAuthFilesStatusBarCache';
@@ -115,6 +116,8 @@ export function AuthFileCard(props: AuthFileCardProps) {
   const noteValue = typeof file.note === 'string' ? file.note.trim() : '';
   // Lead with account identity and use the file name as secondary text.
   const identity = deriveAuthFileIdentity(file);
+  const identityTitle = usePrivateAttr(identity.primary);
+  const fileNameTitle = usePrivateAttr(identity.fullName ?? '');
   const siwcExpires = file.siwcExpiresAt
     ? formatDateTimeValue(file.siwcExpiresAt, i18n.language)
     : '';
@@ -160,9 +163,9 @@ export function AuthFileCard(props: AuthFileCardProps) {
           </span>
           <span
             className={`${styles.account} ${identity.kind === 'fileName' ? styles.accountMono : ''}`}
-            title={identity.primary}
+            title={identityTitle}
           >
-            {identity.primary}
+            <PrivateText text={identity.primary} />
           </span>
         </h3>
         {isRuntimeOnly && (
@@ -171,8 +174,8 @@ export function AuthFileCard(props: AuthFileCardProps) {
       </header>
 
       {identity.secondary && (
-        <p className={styles.fileName} title={identity.fullName}>
-          {identity.secondary}
+        <p className={styles.fileName} title={fileNameTitle}>
+          <PrivateText text={identity.secondary} />
         </p>
       )}
 

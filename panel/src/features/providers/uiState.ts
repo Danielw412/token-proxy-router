@@ -9,7 +9,7 @@ import {
 } from './types';
 
 const PROVIDERS_UI_STATE_KEY = 'providersPage.uiState';
-const DEFAULT_ACTIVE_BRAND: ProviderBrand = 'gemini';
+const DEFAULT_ACTIVE_BRAND: ProviderBrand = 'claude';
 const DEFAULT_PROVIDER_FILTER_STATE: ProviderFilterState = {
   filter: '',
   sortBy: 'name',
