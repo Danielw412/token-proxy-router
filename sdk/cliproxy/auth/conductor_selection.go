@@ -24,7 +24,7 @@ func (m *Manager) SetPluginScheduler(scheduler PluginScheduler) {
 		return
 	}
 	m.mu.Lock()
-	m.pluginScheduler = scheduler
+	m.pluginScheduler = m.chainSchedulerLocked(scheduler) // TPR: keep the native router in front
 	m.mu.Unlock()
 }
 

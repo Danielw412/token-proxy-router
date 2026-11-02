@@ -279,3 +279,53 @@ func windowView(w *Window, now time.Time) *WindowView {
 	}
 	return wv
 }
+
+// maxSessionViews bounds the sessions listed in a view; the busiest come first.
+const maxSessionViews = 200
+
+// SessionView is one conversation family and where it is bound.
+type SessionView struct {
+	ID       string    `json:"id"`
+	Account  string    `json:"account"`
+	Label    string    `json:"label"`
+	Last     string    `json:"last,omitempty"`
+	BoundAt  time.Time `json:"bound_at"`
+	LastSeen time.Time `json:"last_seen"`
+	Requests int64     `json:"requests"`
+	// State is busy (a request in the last few minutes), warm (idle with a warm
+	// cache) or cold (idle long enough that its cache is gone).
+	State string `json:"state"`
+}
+
+// SessionViews lists sessions, most recently active first.
+func (e *Engine) SessionViews() []SessionView {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	now := e.now()
+	warm := e.cacheWarm()
+	out := make([]SessionView, 0, len(e.st.Families))
+	for id, b := range e.st.Families {
+		state := "warm"
+		switch {
+		case now.Sub(b.LastSeen) <= busyWindow:
+			state = "busy"
+		case e.idleFor(b, now) > warm:
+			state = "cold"
+		}
+		if len(id) > 96 {
+			id = id[:96]
+		}
+		out = append(out, SessionView{ID: id, Account: b.Account, Label: e.label(b.Account), Last: b.Last,
+			BoundAt: b.BoundAt, LastSeen: b.LastSeen, Requests: b.Requests, State: state})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].LastSeen.Equal(out[j].LastSeen) {
+			return out[i].LastSeen.After(out[j].LastSeen)
+		}
+		return out[i].ID < out[j].ID
+	})
+	if len(out) > maxSessionViews {
+		out = out[:maxSessionViews]
+	}
+	return out
+}
