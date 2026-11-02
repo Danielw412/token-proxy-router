@@ -139,14 +139,7 @@ func (s *Server) setupRoutes() {
 
 	// Root endpoint
 	s.engine.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "CLI Proxy API Server",
-			"endpoints": []string{
-				"POST /v1/chat/completions",
-				"POST /v1/completions",
-				"GET /v1/models",
-			},
-		})
+		c.Redirect(http.StatusFound, "/management.html") // TPR: send people to the panel
 	})
 
 	// OAuth callback endpoints (reuse main server port)

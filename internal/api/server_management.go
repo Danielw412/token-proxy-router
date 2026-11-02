@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/managementasset"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/webui" // TPR
 	log "github.com/sirupsen/logrus"
 )
 
@@ -313,6 +314,9 @@ func (s *Server) serveManagementControlPanel(c *gin.Context) {
 	cfg := s.getConfig()
 	if cfg == nil || cfg.Home.Enabled || cfg.RemoteManagement.DisableControlPanel {
 		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	if webui.Serve(c) { // TPR: the panel is compiled in
 		return
 	}
 	filePath := managementasset.FilePath(s.configFilePath)

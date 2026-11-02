@@ -39,6 +39,10 @@ const (
 // ManagementFileName exposes the control panel asset filename.
 const ManagementFileName = managementAssetName
 
+// tprPanelEmbedded turns off the runtime panel updater and its hosted fallback.
+// TPR: the panel is compiled into the binary, see internal/tpr/webui.
+const tprPanelEmbedded = true
+
 var (
 	lastUpdateCheckMu   sync.Mutex
 	lastUpdateCheckTime time.Time
@@ -60,6 +64,10 @@ func SetCurrentConfig(cfg *config.Config) {
 // StartAutoUpdater launches a background goroutine that periodically ensures the management asset is up to date.
 // It respects the disable-control-panel flag on every iteration and supports hot-reloaded configurations.
 func StartAutoUpdater(ctx context.Context, configFilePath string) {
+	if tprPanelEmbedded { // TPR: a custom panel must never be overwritten
+		return
+	}
+
 	configFilePath = strings.TrimSpace(configFilePath)
 	if configFilePath == "" {
 		log.Debug("management asset auto-updater skipped: empty config path")
@@ -200,6 +208,10 @@ func EnsureLatestManagementHTML(ctx context.Context, staticDir string, proxyURL 
 		return false
 	}
 	localPath := filepath.Join(staticDir, managementAssetName)
+	if tprPanelEmbedded { // TPR: no release download and no hosted fallback, only report an override file
+		_, errStat := os.Stat(localPath)
+		return errStat == nil
+	}
 
 	_, _, _ = sfGroup.Do(localPath, func() (interface{}, error) {
 		lastUpdateCheckMu.Lock()

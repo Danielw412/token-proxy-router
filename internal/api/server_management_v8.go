@@ -5,7 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/api/handlers/management"
-	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr" // TPR
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr"           // TPR
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/tailscale" // TPR
 )
 
 // registerManagementV8Routes defines the v8 contract independently of v0.
@@ -14,6 +15,7 @@ func (s *Server) registerManagementV8Routes() {
 	const prefix = "/v8/management"
 	s.engine.GET(prefix+"/oauth/callback", s.managementAvailabilityMiddleware(), s.mgmt.GetOAuthCallbackV8)
 	s.engine.POST(prefix+"/oauth/callback", s.managementAvailabilityMiddleware(), s.mgmt.PostOAuthCallbackV8)
+	s.engine.GET(prefix+"/tpr-public/session", s.managementAvailabilityMiddleware(), func(c *gin.Context) { tailscale.ServeSession(c, s.getConfig().Host) }) // TPR: unauthenticated by design
 
 	v8 := s.engine.Group(prefix)
 	v8.Use(s.managementAvailabilityMiddleware(), s.mgmt.Middleware(), func(c *gin.Context) {

@@ -328,6 +328,11 @@ func (h *Handler) Middleware() gin.HandlerFunc {
 		c.Header("X-CPA-BUILD-DATE", buildinfo.BuildDate)
 		c.Header("X-CPA-SUPPORT-PLUGIN", pluginhost.SupportPluginHeaderValue())
 
+		if h.tprIdentityAllowed(c) { // TPR: Tailscale identity sign-in; any failed check falls through to the key check
+			c.Next()
+			return
+		}
+
 		clientIP := c.ClientIP()
 		localClient := clientIP == "127.0.0.1" || clientIP == "::1"
 

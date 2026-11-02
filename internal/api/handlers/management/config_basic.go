@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	latestReleaseURL       = "https://api.github.com/repos/router-for-me/CLIProxyAPI/releases/latest"
-	latestReleaseUserAgent = "CLIProxyAPI"
+	latestReleaseURL       = "https://api.github.com/repos/Danielw412/token-proxy-router/releases/latest" // TPR
+	latestReleaseUserAgent = "TokenProxyRouter"                                                           // TPR
 )
 
 func (h *Handler) GetConfig(c *gin.Context) {
