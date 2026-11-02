@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "tpr/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Check formatting
+        if: runner.os == 'Linux'
+        run: |
+          unformatted="$(gofmt -l cmd internal/tpr)"
+          if [ -n "$unformatted" ]; then
+            echo "gofmt needed:"
+            echo "$unformatted"
+            exit 1
+          fi
+      - name: Vet
+        run: go vet ./internal/tpr/...
+      - name: Test
+        run: go test ./internal/tpr/...
+      - name: Test with the race detector
+        if: runner.os == 'Linux'
+        run: go test -race ./internal/tpr/...
+      - name: Test the upstream packages that carry hooks
+        if: runner.os == 'Linux'
+        run: |
+          go vet ./cmd/server ./internal/managementasset ./internal/api/...
+          go test ./cmd/server ./internal/managementasset ./internal/api/...
+      - name: Build without cgo
+        env:
+          CGO_ENABLED: "0"
+        run: go build -o tpr-ci-output ./cmd/server
+
+  panel:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: panel
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.4.3"
+      - run: bun install --frozen-lockfile
+      - run: bun run type-check
+      - run: bun run test
+      - run: bun run build
+
+  install-smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      TPR_PORT: "18317"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Stage a local release
+        run: |
+          case "$RUNNER_OS" in
+            Windows) asset="tpr-windows-amd64.exe" ;;
+            *) asset="tpr-linux-amd64" ;;
+          esac
+          mkdir -p release
+          CGO_ENABLED=0 go build -ldflags "-X main.Version=v0.0.0-smoke -X main.Commit=$GITHUB_SHA" -o "release/$asset" ./cmd/server
+          (cd release && sha256sum "$asset" > checksums.txt)
+          python="$(command -v python3 || command -v python)"
+          "$python" -m http.server 18400 --bind 127.0.0.1 --directory release >/dev/null 2>&1 &
+          sleep 2
+      - name: Prepare a temporary home
+        run: |
+          smoke_home="$RUNNER_TEMP/smoke-home"
+          mkdir -p "$smoke_home"
+          {
+            echo "TPR_HOME=$smoke_home/.token-proxy-router"
+            echo "HOME=$smoke_home"
+            echo "USERPROFILE=$smoke_home"
+            echo "TPR_INSTALL_BASE=http://127.0.0.1:18400"
+          } >> "$GITHUB_ENV"
+      - name: Install with install.sh
+        if: runner.os != 'Windows'
+        run: sh scripts/install.sh install --no-service
+      - name: Install with install.ps1
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:TPR_INSTALL_ARGS = 'install --no-service'
+          Get-Content -Raw scripts/install.ps1 | Invoke-Expression
+      - name: tpr version
+        run: |
+          case "$RUNNER_OS" in
+            Windows) tpr="$TPR_HOME/bin/tpr.exe" ;;
+            *) tpr="$TPR_HOME/bin/tpr" ;;
+          esac
+          echo "TPR_BIN=$tpr" >> "$GITHUB_ENV"
+          "$tpr" version
+          "$tpr" version | grep -q "v0.0.0-smoke"
+      - name: First run from nothing
+        run: |
+          "$TPR_BIN" --local-model > "$RUNNER_TEMP/server.log" 2>&1 &
+          for _ in $(seq 1 60); do
+            if curl -fs -m 2 "http://127.0.0.1:$TPR_PORT/healthz" >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl -fs -m 2 "http://127.0.0.1:$TPR_PORT/healthz"
+          curl -fs -m 2 "http://127.0.0.1:$TPR_PORT/management.html" >/dev/null
+          test -f "$TPR_HOME/config.yaml"
+          test -f "$TPR_HOME/credentials.txt"
+      - name: Connect dry run against the server
+        run: |
+          key="$(awk '/^client-api-key:/ {print $2}' "$TPR_HOME/credentials.txt" | tr -d '\r')"
+          "$TPR_BIN" connect --hub "http://127.0.0.1:$TPR_PORT" --key "$key" --codex --claude --t3 --dry-run
+          test ! -e "$HOME/.codex"
+      - name: Show the server log on failure
+        if: failure()
+        run: cat "$RUNNER_TEMP/server.log" || true

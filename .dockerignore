@@ -39,3 +39,11 @@ bin
 .bmad
 _bmad
 _bmad-output
+
+# Token Proxy Router build outputs
+panel/node_modules
+panel/dist
+dist
+tpr
+tpr.exe
+tpr-data

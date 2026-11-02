@@ -1,7 +1,6 @@
 services:
-  cli-proxy-api:
-    image: ${CLI_PROXY_IMAGE:-eceasy/cli-proxy-api:latest}
-    pull_policy: always
+  token-proxy-router:
+    image: ${TPR_IMAGE:-ghcr.io/danielw412/token-proxy-router:latest}
     build:
       context: .
       dockerfile: Dockerfile
@@ -9,15 +8,15 @@ services:
         VERSION: ${VERSION:-dev}
         COMMIT: ${COMMIT:-none}
         BUILD_DATE: ${BUILD_DATE:-unknown}
-    container_name: cli-proxy-api-cluster
+        UPSTREAM_VERSION: ${UPSTREAM_VERSION:-unknown}
+        PANEL_VERSION: ${PANEL_VERSION:-unknown}
+    container_name: token-proxy-router-cluster
     environment:
       HOME_JWT: ${HOME_JWT:-}
     ports:
       - "8317:8317"
     volumes:
-      - ${CLI_PROXY_HOME_PATH:-./home}:/root/.cli-proxy-api
-      - ${CLI_PROXY_LOG_PATH:-./logs}:/CLIProxyAPI/logs
-      - ${CLI_PROXY_PLUGIN_PATH:-./plugins}:/CLIProxyAPI/plugins
+      - ${TPR_DATA_PATH:-./tpr-data}:/data
     command: >
       sh -eu -c '
         if [ -z "$$HOME_JWT" ]; then
@@ -25,6 +24,6 @@ services:
           exit 1
         fi
 
-        exec ./CLIProxyAPI -home-jwt "$$HOME_JWT"
+        exec tpr -home-jwt "$$HOME_JWT"
       '
     restart: unless-stopped

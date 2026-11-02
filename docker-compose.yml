@@ -1,7 +1,9 @@
+# Runs one hub. Set TZ to your time zone if log times matter to you. The panel
+# refuses remote management unless MANAGEMENT_PASSWORD is set, and through a
+# container port every browser counts as remote.
 services:
-  cli-proxy-api:
-    image: ${CLI_PROXY_IMAGE:-eceasy/cli-proxy-api:latest}
-    pull_policy: always
+  token-proxy-router:
+    image: ${TPR_IMAGE:-ghcr.io/danielw412/token-proxy-router:latest}
     build:
       context: .
       dockerfile: Dockerfile
@@ -9,21 +11,17 @@ services:
         VERSION: ${VERSION:-dev}
         COMMIT: ${COMMIT:-none}
         BUILD_DATE: ${BUILD_DATE:-unknown}
-    container_name: cli-proxy-api
-    # env_file:
-    #   - .env
+        UPSTREAM_VERSION: ${UPSTREAM_VERSION:-unknown}
+        PANEL_VERSION: ${PANEL_VERSION:-unknown}
+    container_name: token-proxy-router
     environment:
-      DEPLOY: ${DEPLOY:-}
+      TZ: ${TZ:-UTC}
+      MANAGEMENT_PASSWORD: ${MANAGEMENT_PASSWORD:-}
     ports:
-      - "8317:8317"
-      - "8085:8085"
-      - "1455:1455"
-      - "54545:54545"
-      - "51121:51121"
-      - "11451:11451"
+      - "127.0.0.1:8317:8317"
+      # OAuth callback ports, needed for logging in from a browser on this machine.
+      - "127.0.0.1:54545:54545"
+      - "127.0.0.1:1455:1455"
     volumes:
-      - ${CLI_PROXY_CONFIG_PATH:-./config.yaml}:/CLIProxyAPI/config.yaml
-      - ${CLI_PROXY_AUTH_PATH:-./auths}:/root/.cli-proxy-api
-      - ${CLI_PROXY_LOG_PATH:-./logs}:/CLIProxyAPI/logs
-      - ${CLI_PROXY_PLUGIN_PATH:-./plugins}:/CLIProxyAPI/plugins
+      - ${TPR_DATA_PATH:-./tpr-data}:/data
     restart: unless-stopped

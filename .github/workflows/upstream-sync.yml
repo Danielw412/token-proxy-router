@@ -1,0 +1,71 @@
+name: Upstream sync
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: main
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Merge the latest upstream releases
+        id: sync
+        env:
+          SYNC_CONFLICTS_FILE: ${{ runner.temp }}/conflicts.txt
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          code=0
+          scripts/sync-upstream.sh || code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "head=$(git branch --show-current)" >> "$GITHUB_OUTPUT"
+          if [ "$code" = "1" ]; then
+            exit 1
+          fi
+      - name: Open a pull request
+        if: steps.sync.outputs.code == '0' && steps.sync.outputs.head != 'main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD: ${{ steps.sync.outputs.head }}
+        run: |
+          git push --force-with-lease origin "$HEAD"
+          gh pr create --base main --head "$HEAD" --title "Merge upstream: $HEAD" \
+            --body "Merges the latest upstream releases. The merge was clean and the tests passed. See docs/upstream-sync.md."
+      - name: Open a draft pull request when tests fail
+        if: steps.sync.outputs.code == '3'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD: ${{ steps.sync.outputs.head }}
+        run: |
+          git push --force-with-lease origin "$HEAD"
+          gh pr create --draft --base main --head "$HEAD" --title "Merge upstream (tests failing): $HEAD" \
+            --body "The merge was clean, but tests fail on this branch. See this run's log and docs/upstream-sync.md."
+      - name: Open an issue listing the conflicts
+        if: steps.sync.outputs.code == '2'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CONFLICTS: ${{ runner.temp }}/conflicts.txt
+        run: |
+          {
+            echo "The weekly upstream merge conflicted, so nothing was merged."
+            echo
+            echo '```'
+            cat "$CONFLICTS"
+            echo '```'
+            echo
+            echo 'Run `scripts/sync-upstream.sh` locally and follow docs/upstream-sync.md.'
+          } > "$RUNNER_TEMP/body.md"
+          gh issue create --title "Upstream merge conflicts" --body-file "$RUNNER_TEMP/body.md"
