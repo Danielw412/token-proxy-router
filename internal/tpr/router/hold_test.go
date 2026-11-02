@@ -85,10 +85,12 @@ func TestPausedRequestGoesWhenResumed(t *testing.T) {
 
 func TestTimedPauseLetsRequestsGoWhenItEnds(t *testing.T) {
 	s := testService(t)
+	// Timed from before the pause: setting it writes state to disk, which can take a
+	// while on a busy machine, and that time counts toward the pause.
+	start := time.Now()
 	if err := s.Engine.Pause(300*time.Millisecond, 0); err != nil {
 		t.Fatal(err)
 	}
-	start := time.Now()
 	if r := waitFor(t, holdAsync(s, codexRequest("s1")), 2*time.Second); r != "" {
 		t.Fatalf("rejected: %q", r)
 	}
