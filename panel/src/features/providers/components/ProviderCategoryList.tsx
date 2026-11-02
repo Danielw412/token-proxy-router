@@ -9,20 +9,8 @@ interface ProviderCategoryListProps {
   onSelect: (brand: ProviderBrand) => void;
 }
 
-const QUICK_FILL_BRAND_ORDER: readonly ProviderBrand[] = ['fennoAI', 'qiniuCloud'];
-
-const QUICK_FILL_BRANDS: ReadonlySet<ProviderBrand> = new Set(QUICK_FILL_BRAND_ORDER);
-
 export function ProviderCategoryList({ groups, activeBrand, onSelect }: ProviderCategoryListProps) {
   const { t } = useTranslation();
-
-  const quickFillGroups = groups
-    .filter((g) => QUICK_FILL_BRANDS.has(g.id))
-    .sort(
-      (left, right) =>
-        QUICK_FILL_BRAND_ORDER.indexOf(left.id) - QUICK_FILL_BRAND_ORDER.indexOf(right.id)
-    );
-  const providerGroups = groups.filter((g) => !QUICK_FILL_BRANDS.has(g.id));
 
   const renderGroups = (items: ProviderGroup[]) => (
     <div className={styles.list}>
@@ -34,7 +22,6 @@ export function ProviderCategoryList({ groups, activeBrand, onSelect }: Provider
         const itemClass = [
           styles.item,
           active ? styles.active : '',
-          group.id === 'kimi' ? styles.itemKimi : '',
         ]
           .filter(Boolean)
           .join(' ');
@@ -93,7 +80,7 @@ export function ProviderCategoryList({ groups, activeBrand, onSelect }: Provider
             <span
               className={[
                 styles.badge,
-                total === 0 ? (group.id === 'kimi' ? styles.badgeKimi : styles.badgeAmber) : '',
+                total === 0 ? styles.badgeAmber : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
@@ -110,14 +97,8 @@ export function ProviderCategoryList({ groups, activeBrand, onSelect }: Provider
     <div className={styles.stack}>
       <aside className={styles.aside}>
         <p className={styles.eyebrow}>{t('providersPage.categories.title')}</p>
-        {renderGroups(providerGroups)}
+        {renderGroups(groups)}
       </aside>
-      {quickFillGroups.length > 0 && (
-        <aside className={styles.aside}>
-          <p className={styles.eyebrow}>{t('providersPage.categories.quickFill')}</p>
-          {renderGroups(quickFillGroups)}
-        </aside>
-      )}
     </div>
   );
 }

@@ -110,7 +110,7 @@ test('OpenAI prompt cache key can be enabled on create and explicitly disabled o
   expect(groups()[0]['support-prompt-cache-key']).toBe(false);
   expect(key(groups())).toEqual({ 'api-key': 'fixture-key' });
 });
-test('UI and form projection gate behavior by actual provider or sponsor protocol', () => {
+test('UI and form projection gate behavior by actual provider', () => {
   const options = {
     alphaSearch: true,
     disableCodexCloaking: false,

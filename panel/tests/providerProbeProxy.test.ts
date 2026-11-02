@@ -115,13 +115,8 @@ describe('provider probe proxy forwarding', () => {
     expect(requests[1].authIndex).toBeUndefined();
   });
 
-  test('base and sponsor forms pass their editable proxy to probe hooks', () => {
+  test('the provider form passes its editable proxy to probe hooks', () => {
     const base = readFileSync('src/features/providers/sheets/forms/BaseProviderForm.tsx', 'utf8');
-    const sponsor = readFileSync(
-      'src/features/providers/sheets/forms/SponsorProviderForm.tsx',
-      'utf8'
-    );
     expect(base.match(/proxyUrl: form\.proxyUrl/g)).toHaveLength(2);
-    expect(sponsor).toContain('proxyUrl: entry.proxyUrl,\n    formHeaders: discoveryHeaders');
   });
 });

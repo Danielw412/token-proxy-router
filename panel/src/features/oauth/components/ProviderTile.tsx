@@ -22,7 +22,6 @@ export interface ProviderTileProps {
 /**
  * 提供商磁贴：整块可点（stretched button），点击即开始登录并打开授权对话框。
  * 副行平时说明登录方式，登录进行中改为实时状态 —— 对话框关着也能看到后台进度。
- * 赞助商不走磁贴，见 SponsorCard。
  */
 export function ProviderTile({
   label,

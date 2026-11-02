@@ -122,7 +122,6 @@
   },
   "nav_meta": {
     "dashboard": "İşletim Özeti",
-    "quick_start": "APIKEY.FUN Kurulumu",
     "ai_providers": "Yukarı Akış Model Yönlendirmesi",
     "auth_files": "Kimlik Dosyaları ve Kimlik Bilgileri",
     "oauth": "OAuth Yetkilendirmesi",
@@ -895,7 +894,6 @@
     "kimi_ai_oauth_polling_error": "Kimlik Doğrulama Durumu Kontrol Edilemedi:",
     "kimi_oauth_title": "Kimi Çin (kimi.com)",
     "kimi_oauth_button": "Kimi Çin Hesabına Giriş Yap",
-    "kimi_sign_up_button": "Hemen Kaydol",
     "kimi_oauth_hint": "kimi.com Çin Hesabını Aygıt Girişiyle Yetkilendir. Kimlik Doğrulama Dosyaları Otomatik Kaydedilir. Uluslararası Hesaplar Ayrı kimi.ai Girişini Kullanmalıdır.",
     "kimi_open_link": "Bağlantıyı Aç",
     "kimi_copy_link": "Bağlantıyı Kopyala",
@@ -955,10 +953,6 @@
     "remote_access_disabled": "Bu Giriş Yöntemi Uzak Erişim için Kullanılamaz. Lütfen localhost Üzerinden Eriş.",
     "kimi_oauth_name": "Kimi Çin",
     "kimi_ai_oauth_name": "Kimi Uluslararası",
-    "sponsor_site_china": "Çin",
-    "sponsor_site_international": "Uluslararası",
-    "sponsor_kimi_caption": "Aygıt Koduyla Giriş · Hesaplar Site Başına Ayrıdır",
-    "sponsor_sign_up": "Açık Platforma Katıl",
     "method_device": "Aygıt Kodu",
     "method_browser": "Tarayıcıyla Giriş",
     "method_plugin": "Eklenti",
@@ -1424,7 +1418,6 @@
           "title": "Ağ Yapılandırması",
           "description": "Proxy, Yeniden Deneme ve Yönlendirme Ayarları",
           "proxy_url": "Proxy URL",
-          "proxy_url_sponsor_hint": "Uygun Proxy Yok Mu?",
           "request_retry": "İstek Yeniden Deneme Sayısı",
           "max_retry_credentials": "En Fazla Yeniden Deneme Kimlik Bilgisi",
           "max_retry_credentials_hint": "Ayarlanmamış Bırakmak için Boş Bırak. Kullanılabilir Tüm Kimlik Bilgilerini Denemek için 0 veya Negatif Tam Sayı Ayarla.",
@@ -2090,11 +2083,7 @@
       "xai": "xAI",
       "claude": "Claude",
       "vertex": "Vertex",
-      "openaiCompatibility": "OpenAI Uyumlu",
-      "apikeyFun": "APIKEY.FUN",
-      "fennoAI": "FennoAI",
-      "qiniuCloud": "Qiniu Cloud",
-      "kimi": "Kimi"
+      "openaiCompatibility": "OpenAI Uyumlu"
     },
     "table": {
       "key": "Anahtar",
@@ -2114,86 +2103,6 @@
       "empty": "Henüz Kaynak Yok. Eklemek için \"Yeni\" Seçeneğine Tıkla.",
       "filterPlaceholder": "Anahtar, URL veya Önek Ara…",
       "description": "{{route}} Altındaki Kaynakları Yönet"
-    },
-    "sponsor": {
-      "protocolSummary": "Anthropic / OpenAI / Gemini / Codex API (Responses)",
-      "detailHint": "{{provider}} Protokole Göre Eşleşen API Anahtarı Yapılandırmalarına Yazılır. Bu Görünüm Onları Birlikte Yönetir.",
-      "registerLink": "Buradan Kaydol",
-      "registerNow": "Hemen Kaydol",
-      "kimiPromo": "Yeni Kullanıcılar İlk Başarılı Yüklemelerinin %10'u Değerinde API Kredisi Alır. Üst Sınır ¥1000. Teklif 30 Eylül'de Biter.",
-      "dashboardLink": "Pano",
-      "emptyRegisterHint": "Henüz Yapılandırma Yok.",
-      "apiKeyHint": "Bu Anahtar Yalnızca Seçilen Grup/Protokol Yapılandırmasına Yazılır.",
-      "usageCheck": "Kullanımı Kontrol Et",
-      "usageChecking": "Kontrol Ediliyor",
-      "usageRemaining": "Kalan: {{amount}} {{unit}}",
-      "usageBreakdown": "Kullanılan {{used}} / Sınır {{limit}}",
-      "usageStatus": "Durum: {{status}}",
-      "usageInvalid": "Geçersiz Anahtar",
-      "usageEmpty": "Uç Nokta Kullanım Verisi Döndürmedi.",
-      "usageApiKeyRequired": "API Anahtarı Gerekli",
-      "aggregationConflict": "Bu Gruplanmış Sağlayıcı Birden Fazla Arka Uç Yapılandırması veya OpenAI Anahtarı İçeriyor. Veri Kaybını Önlemek için Kaynak Yapılandırmada Düzenle.",
-      "partialMutationWarning": "Bir veya Daha Fazla Protokol Güncellenmiş Olabilecekken İşlem Başarısız Oldu. En Son Yapılandırma Yeniden Yüklendi. Yeniden Denemeden Önce İncele.",
-      "groupedKeysTitle": "Gruplanmış Anahtarlar",
-      "groupedKeysHint": "Platform Anahtarları Oluşturulurken Bir Gruba Bağlanabilir. Buradaki Her Gruplanmış Anahtar Bir Protokolü Yönetir. Model Keşfi Yalnızca O Protokolü Kullanır.",
-      "groupedKey": "Gruplanmış Anahtar #{{index}}",
-      "addGroupedKey": "Gruplanmış Anahtar Ekle",
-      "removeGroupedKey": "Gruplanmış Anahtarı Kaldır",
-      "protocol": "Grup/Protokol",
-      "protocolHint": "Bu Anahtar için Grup/Protokol Seç.",
-      "protocolEndpoint": "Geçerli Protokol Uç Noktası",
-      "urlMode": "{{provider}} URL'si",
-      "urlHint": "Tüm URL'ler Aynı API Kurallarını Kullanır. Kayıt Yalnızca Geçerli Gruplanmış Protokolün Uç Noktasını Yazar.",
-      "urlOptions": {
-        "standard": "Standart URL",
-        "direct": "Doğrudan URL",
-        "domestic": "Çin Ana Karası Rotası",
-        "overseas": "Yurt Dışı Rotası",
-        "mainlandChina": "Çin Ana Karası (Önerilen)",
-        "global": "Küresel"
-      },
-      "urlOptionDescriptions": {
-        "domestic": "Çin Ana Karasındaki Kullanıcılar ve İş Yükleri için. Ana Kara Ağlarında Genellikle Daha Düşük Gecikme.",
-        "overseas": "Yurt Dışı Dağıtımlar, Sınır Ötesi Erişim veya Yurt Dışı Modeller Gerektiren İş Yükleri için.",
-        "mainlandChinaRecommended": "Çin Ana Karası Ağlarındaki Kullanıcılar ve İş Yükleri için Önerilir.",
-        "global": "Diğer Tüm Bölgelerdeki Kullanıcılar ve İş Yükleri için."
-      },
-      "modelsTitle": "Protokol Model Ayarları",
-      "modelsHint": "Codex API, Anthropic, Gemini ve OpenAI Uyumlu Rotalar için Model İzin Listelerini veya Takma Adları Ayrı Yapılandır.",
-      "protocolModels": {
-        "codex": "Codex API Modelleri",
-        "anthropic": "Anthropic Modelleri",
-        "gemini": "Gemini Modelleri",
-        "openai": "OpenAI Uyumlu Modeller"
-      },
-      "protocolModelHints": {
-        "codex": "Codex API Yapılandırma Modellerine Yazar. /v1/models Üzerinden Getir ve Gerekirse Takma Ad Ayarla.",
-        "anthropic": "Anthropic Yapılandırma Modellerine Yazar. /v1/models Üzerinden Getir ve Gerekirse Takma Ad Ayarla.",
-        "gemini": "Gemini Yapılandırma Modellerine Yazar. /v1beta/models Üzerinden Getir ve Gerekirse Takma Ad Ayarla.",
-        "openai": "OpenAI Uyumlu Yapılandırma Modellerine Yazar. /models Üzerinden Getir ve Gerekirse Takma Ad Ayarla."
-      },
-      "validation": {
-        "keyRequired": "Her Gruplanmış Anahtar için Bir API Anahtarı Gir.",
-        "protocolDuplicate": "Her Protokolün Yalnızca Bir Gruplanmış Anahtarı Olabilir."
-      },
-      "openaiEntries": "OpenAI Uyumlu Anahtarlar",
-      "codexEntries": "Codex API Anahtarları",
-      "anthropicEntries": "Anthropic Anahtarları",
-      "geminiEntries": "Gemini Anahtarları",
-      "protocols": {
-        "anthropic": "Anthropic",
-        "openai": "OpenAI Uyumlu",
-        "gemini": "Gemini",
-        "codexResponses": "Codex API (Responses)"
-      },
-      "double11": {
-        "badge": "11.11 · Sınırlı süre",
-        "title": "{{provider}} 11.11 Yükleme Bonusu",
-        "description": "Kampanya süresince {{provider}} hesabınıza yükleme yapın, yükleme tutarının %{{percent}} kadarını ek kredi olarak kazanın.",
-        "bonus": "Yükleme bonusu",
-        "cta": "Hemen katıl",
-        "ctaAria": "Hemen katıl: {{provider}} 11.11 yükleme kampanyası (yeni sekmede açılır)"
-      }
     },
     "status": {
       "active": "Aktif",

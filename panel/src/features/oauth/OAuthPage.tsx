@@ -5,10 +5,8 @@ import { useRevealGroup } from '@/hooks/motion';
 import { useAuthStore, useThemeStore } from '@/stores';
 import iconVertex from '@/assets/icons/vertex.svg';
 import iconCodex from '@/assets/icons/codex.svg';
-import { KIMI_DISPLAY_NAME } from '@/features/providers/kimi';
 import { OAuthHeader } from './components/OAuthHeader';
 import { ProviderTile } from './components/ProviderTile';
-import { SponsorCard, type SponsorCardSite } from './components/SponsorCard';
 import { OAuthFlowDialog, type DialogHeading } from './components/OAuthFlowDialog';
 import { VertexImportDialog } from './components/VertexImportDialog';
 import { SiwcBindDialog } from './components/SiwcBindDialog';
@@ -19,7 +17,6 @@ import {
 } from './hooks/useOAuthFlows';
 import { useVertexImport } from './hooks/useVertexImport';
 import {
-  isSponsor,
   OAUTH_PROVIDERS,
   resolveThemedIcon,
   supportsManualCallback,
@@ -100,11 +97,6 @@ export function OAuthPage() {
     icon: iconOf(card),
   });
 
-  const sponsorOf = (card: OAuthProviderCard) =>
-    isSponsor(card)
-      ? { url: card.sponsor.signUpUrl, label: t('auth_login.kimi_sign_up_button') }
-      : undefined;
-
   const tileStatusLabel = (status: ProviderFlowState['status']) =>
     status === 'waiting'
       ? t('auth_login.tile_waiting')
@@ -140,24 +132,6 @@ export function OAuthPage() {
   const dialogCard =
     dialog?.kind === 'oauth' ? providerCards.find((card) => card.id === dialog.id) : undefined;
   const providerCount = providerCards.length;
-  const sponsorCards = providerCards.filter(isSponsor);
-  const regularCards = providerCards.filter((card) => !isSponsor(card));
-  // 赞助商卡占级联的第 0 位，其余磁贴顺延
-  const tileIndexOffset = sponsorCards.length > 0 ? 1 : 0;
-
-  const sponsorSites: SponsorCardSite[] = sponsorCards.map((card) => {
-    const status = flows.states[card.id]?.status;
-    return {
-      id: card.id,
-      name: labelOf(card),
-      region: t(card.sponsor.siteKey),
-      domain: card.domain ?? '',
-      status,
-      statusLabel: tileStatusLabel(status),
-      signUpUrl: card.sponsor.signUpUrl,
-    };
-  });
-
   const renderTile = (card: OAuthProviderCard, index: number) => {
     const status = flows.states[card.id]?.status;
     return (
@@ -166,7 +140,7 @@ export function OAuthPage() {
         label={labelOf(card)}
         caption={captionOf(card)}
         icon={iconOf(card)}
-        index={index + tileIndexOffset}
+        index={index}
         status={status}
         statusLabel={tileStatusLabel(status)}
         onOpen={() => openProvider(card)}
@@ -185,21 +159,7 @@ export function OAuthPage() {
         addedCount={flows.addedCount}
       />
 
-      {/* 赞助商独占首行：一张品牌卡收拢两站入口，其余提供商在下方紧凑网格 */}
-      {sponsorCards.length > 0 && (
-        <SponsorCard
-          title={KIMI_DISPLAY_NAME}
-          caption={t('auth_login.sponsor_kimi_caption')}
-          icon={iconOf(sponsorCards[0])}
-          signUpLabel={t('auth_login.sponsor_sign_up')}
-          sites={sponsorSites}
-          onOpen={(siteId) => {
-            const card = sponsorCards.find((sponsor) => sponsor.id === siteId);
-            if (card) openProvider(card);
-          }}
-        />
-      )}
-      <div className={styles.grid}>{regularCards.map(renderTile)}</div>
+      <div className={styles.grid}>{providerCards.map(renderTile)}</div>
 
       <section className={styles.section} aria-labelledby={otherMethodsId}>
         <h2 className={styles.sectionLabel} id={otherMethodsId} data-reveal>
@@ -210,14 +170,14 @@ export function OAuthPage() {
             label={VERTEX_LABEL}
             caption={t('vertex_import.file_label')}
             icon={iconVertex}
-            index={regularCards.length + tileIndexOffset}
+            index={providerCards.length}
             onOpen={openVertex}
           />
           <ProviderTile
             label={t('siwc.bind')}
             caption={t('siwc.tile_caption')}
             icon={iconCodex}
-            index={regularCards.length + tileIndexOffset + 1}
+            index={providerCards.length + 1}
             onOpen={openSiwc}
           />
         </div>
@@ -231,7 +191,6 @@ export function OAuthPage() {
           state={flows.states[dialogCard.id] ?? {}}
           text={(suffix) => flows.providerText(dialogCard.id, suffix)}
           supportsCallback={supportsManualCallback(dialogCard)}
-          sponsor={sponsorOf(dialogCard)}
           onStart={() => void flows.startAuth(dialogCard.id)}
           onCancel={() => void flows.cancelAuth(dialogCard.id)}
           onCallbackChange={(value) => flows.setCallbackInput(dialogCard.id, value)}

@@ -64,7 +64,7 @@ describe('Meta Muse API key provider', () => {
     expect(PROVIDER_DESCRIPTORS.meta.baseUrlRequired).toBe(false);
     expect(PROVIDER_DESCRIPTORS.meta.supportsWebsockets).toBe(false);
     expect(PROVIDER_DESCRIPTORS.meta.supportsTestModel).toBe(true);
-    expect(PROVIDER_BRAND_ORDER.indexOf('meta')).toBe(PROVIDER_BRAND_ORDER.indexOf('codex') + 1);
+    expect(PROVIDER_BRAND_ORDER).toContain('meta');
     expect(MODEL_DISCOVERY_BRANDS).toContain('meta');
   });
 });
