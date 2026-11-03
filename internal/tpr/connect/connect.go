@@ -395,7 +395,7 @@ func Run(ctx context.Context, env Env, opts Options) error {
 		if err := s.connectT3(env, hub, opts.Key); err != nil {
 			return fmt.Errorf("T3 Code: %w", err) //nolint:staticcheck // product name
 		}
-		fmt.Fprintln(out, "  note: restart T3 Code to pick up the new providers.")
+		fmt.Fprintln(out, "  note: T3 Code picks up the new providers on its own. Restart it if they do not appear.")
 	}
 	if opts.DryRun {
 		return nil

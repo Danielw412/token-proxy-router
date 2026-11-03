@@ -124,7 +124,7 @@ A file you have not edited since returns byte for byte. A file you have edited k
 | --- | --- | --- |
 | Codex | `[model_providers.tpr]` and `[profiles.tpr]` in `~/.codex/config.toml`. `TPR_API_KEY` in a sourced `~/.token-proxy-router/env` on Linux, or the user environment on Windows. | `codex --profile tpr`. Add `--default` to `tpr connect` to make the hub Codex's default. |
 | Claude Code | `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` in the `env` block of `~/.claude/settings.json`. | Just run `claude`. **All Claude Code use on that machine now goes through the hub.** |
-| T3 Code | Two provider instances, "Router: Codex" and "Router: Claude", in `~/.t3/userdata/settings.json`, with their keys in `secrets/`. `T3CODE_HOME` moves this. | Restart T3 Code, then pick a Router provider. Other instances are untouched. |
+| T3 Code | Two provider instances, "Router: Codex" and "Router: Claude", in `~/.t3/userdata/settings.json`, with their keys in `secrets/`. `T3CODE_HOME` moves this. | Pick a Router provider. T3 Code loads them on its own, so restart it only if they do not appear. Other instances are untouched. |
 
 ## Troubleshooting
 

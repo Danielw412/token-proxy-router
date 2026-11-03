@@ -2598,7 +2598,7 @@
       "windows_note": "Run this in PowerShell on the other machine after installing.",
       "codex_note": "To do this by hand, follow these steps in order. The Linux or Windows tab does all of it for you.",
       "claude_warning": "This redirects all Claude Code use on that machine through the hub. To go back, remove these variables.",
-      "t3_note": "This adds Router providers to T3 Code without touching your others. Restart T3 Code afterwards, because it reads provider settings only when it starts.",
+      "t3_note": "Run this on the machine with T3 Code. It adds two providers, Router: Codex and Router: Claude, and leaves your others alone. T3 Code loads them on its own.",
       "show_commands": "Show commands",
       "show_commands_hint": "These include the real API key, so they are only fetched when you ask.",
       "codex_file": "1. Add to ~/.codex/config.toml",
