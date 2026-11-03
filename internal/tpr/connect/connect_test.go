@@ -210,7 +210,7 @@ func TestConnectAllToolsThenUndoIsByteForByte(t *testing.T) {
 	before := snapshotTree(t, w.home)
 
 	output := w.connect(t, nil)
-	for _, want := range []string{"Hub OK", "changed:", "always goes through the hub", "restart T3 Code", "codex --profile tpr", "--undo"} {
+	for _, want := range []string{"Hub OK", "changed:", "always goes through the hub", "picks up the new providers", "codex --profile tpr", "--undo"} {
 		if !strings.Contains(output, want) {
 			t.Errorf("output lacks %q:\n%s", want, output)
 		}
