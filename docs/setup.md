@@ -63,7 +63,9 @@ systemctl --user disable --now cliproxyapi.service
 tpr install
 ```
 
-Your existing keys keep working. To go back, run `tpr stop` and start the old server again. Do not leave both running.
+Your existing keys keep working. Run `tpr migrate` right before switching, because the old server keeps refreshing its logins until you stop it, and a copy taken earlier may stop working.
+
+To go back, run `tpr stop` and start the old server again. Any login TPR has refreshed by then no longer works on the old server, so log in to those accounts again there. Do not leave both running.
 
 ## Publish on your tailnet
 

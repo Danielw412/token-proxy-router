@@ -444,7 +444,7 @@ func (r Report) Print(w io.Writer, dryRun bool, goos string) {
 		fmt.Fprintln(w, "  systemctl --user disable --now cliproxyapi.service   # or stop it however you run it")
 		fmt.Fprintln(w, "  tpr install")
 	}
-	fmt.Fprintln(w, "To switch back: stop TPR with `tpr stop`, then start the old server again.")
+	fmt.Fprintln(w, "To switch back: stop TPR with `tpr stop`, then start the old server again. Any login TPR has refreshed by then must be logged in again on the old server.")
 }
 
 func presence(present bool) string {
