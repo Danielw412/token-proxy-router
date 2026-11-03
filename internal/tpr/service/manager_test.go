@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -69,11 +70,11 @@ func testManager(t *testing.T, goos string, fake *fakeRun) (*Manager, *bytes.Buf
 }
 
 func TestRenderUnitEscapesAndPassesHome(t *testing.T) {
-	unit := RenderUnit("/opt/my tools/tpr%x", "/data dir", true)
+	unit := RenderUnit("/opt/my tools/tpr%x", "/data dir%", true)
 	for _, want := range []string{
 		`ExecStart="/opt/my tools/tpr%%x" service-run`,
-		`WorkingDirectory="/data dir"`,
-		`Environment="TPR_HOME=/data dir"`,
+		"WorkingDirectory=/data dir%%\n",
+		`Environment="TPR_HOME=/data dir%%"`,
 		"Restart=always",
 		"WantedBy=default.target",
 	} {
@@ -83,6 +84,45 @@ func TestRenderUnitEscapesAndPassesHome(t *testing.T) {
 	}
 	if strings.Contains(RenderUnit("/x", "/y", false), "Environment=") {
 		t.Error("no override means no Environment line")
+	}
+}
+
+// A unit that only looks right is not enough: systemd refuses to start a unit with
+// one bad setting, and comparing strings cannot tell. This asks systemd itself. The
+// verify command only reads the file; it does not load or start anything.
+func TestRenderedUnitPassesSystemdVerify(t *testing.T) {
+	analyze, err := exec.LookPath("systemd-analyze")
+	if err != nil {
+		t.Skip("systemd-analyze is not installed")
+	}
+	base := t.TempDir()
+	for _, tc := range []struct {
+		name    string
+		folder  string
+		setHome bool
+	}{
+		{name: "plain", folder: "data"},
+		{name: "spaces and percent", folder: "my data 100%", setHome: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dataDir := filepath.Join(base, tc.folder)
+			if err := os.MkdirAll(filepath.Join(dataDir, "bin"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			exe := filepath.Join(dataDir, "bin", "tpr")
+			if err := os.WriteFile(exe, []byte("#!/bin/sh\n"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			unitDir := t.TempDir()
+			unitPath := filepath.Join(unitDir, unitName)
+			if err := os.WriteFile(unitPath, []byte(RenderUnit(exe, dataDir, tc.setHome)), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			out, errVerify := exec.Command(analyze, "verify", "--man=no", unitPath).CombinedOutput()
+			if errVerify != nil || strings.Contains(string(out), unitName) {
+				t.Fatalf("systemd rejects the unit: %v\n%s", errVerify, out)
+			}
+		})
 	}
 }
 

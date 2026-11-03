@@ -160,13 +160,19 @@ func systemdQuote(value string) string {
 	return `"` + value + `"`
 }
 
+// systemdPath writes a path for WorkingDirectory. That setting takes the whole
+// value as the path, so quotes would make it invalid and spaces need nothing.
+func systemdPath(value string) string {
+	return strings.ReplaceAll(value, `%`, `%%`)
+}
+
 // RenderUnit returns the systemd user unit for a binary.
 func RenderUnit(exe, dataDir string, setHome bool) string {
 	var b strings.Builder
 	b.WriteString("[Unit]\nDescription=Token Proxy Router\nAfter=network-online.target\nWants=network-online.target\n\n")
 	b.WriteString("[Service]\nType=simple\n")
 	fmt.Fprintf(&b, "ExecStart=%s service-run\n", systemdQuote(exe))
-	fmt.Fprintf(&b, "WorkingDirectory=%s\n", systemdQuote(dataDir))
+	fmt.Fprintf(&b, "WorkingDirectory=%s\n", systemdPath(dataDir))
 	if setHome {
 		fmt.Fprintf(&b, "Environment=%s\n", systemdQuote(home.EnvHome+"="+dataDir))
 	}
