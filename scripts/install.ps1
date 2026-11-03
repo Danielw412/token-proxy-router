@@ -18,9 +18,31 @@ function Install-Tpr {
     param([string[]]$Arguments)
 
     $ErrorActionPreference = 'Stop'
+    # Windows PowerShell 5.1 downloads far more slowly with its progress bar on.
     $ProgressPreference = 'SilentlyContinue'
     # Windows PowerShell 5.1 may default to protocols GitHub refuses.
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+
+    # curl.exe ships with Windows 10 and later, and shows speed and time left. A
+    # connection that stops moving fails rather than waiting forever.
+    function Get-Build {
+        param([string]$Uri, [string]$OutFile)
+
+        $curl = Get-Command curl.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($curl) {
+            $curlArgs = @('-fSL', '--retry', '3', '--connect-timeout', '30', '--speed-limit', '1024', '--speed-time', '120', '-o', $OutFile, $Uri)
+            if ([Console]::IsErrorRedirected) { $curlArgs = @('-s') + $curlArgs }
+            # The progress display is written to stderr, which is not an error.
+            $ErrorActionPreference = 'Continue'
+            & $curl.Source @curlArgs
+            $code = $LASTEXITCODE
+            $ErrorActionPreference = 'Stop'
+            if ($code -eq 0) { return }
+            Write-Host "curl.exe stopped with code $code. Trying again another way."
+        }
+        Write-Host 'No progress is shown from here. This can take several minutes on a slow connection.'
+        Invoke-WebRequest -UseBasicParsing -Uri $Uri -OutFile $OutFile
+    }
 
     $base = $env:TPR_INSTALL_BASE
     if (-not $base) { $base = 'https://github.com/Danielw412/token-proxy-router/releases/latest/download' }
@@ -38,21 +60,38 @@ function Install-Tpr {
     $tmp = Join-Path ([IO.Path]::GetTempPath()) ([IO.Path]::GetRandomFileName())
     New-Item -ItemType Directory -Path $tmp | Out-Null
     try {
-        $download = Join-Path $tmp $asset
         $checksums = Join-Path $tmp 'checksums.txt'
-        Write-Host "Downloading $asset ..."
-        Invoke-WebRequest -UseBasicParsing -Uri "$base/$asset" -OutFile $download
         Invoke-WebRequest -UseBasicParsing -Uri "$base/checksums.txt" -OutFile $checksums
 
-        $want = $null
+        $sums = @{}
         foreach ($line in Get-Content $checksums) {
             $fields = -split $line
-            if ($fields.Count -eq 2 -and $fields[1].TrimStart('*') -eq $asset) { $want = $fields[0].ToLower() }
+            if ($fields.Count -eq 2) { $sums[$fields[1].TrimStart('*')] = $fields[0].ToLower() }
         }
-        if (-not $want) { throw "checksums.txt does not list $asset, so the download cannot be verified." }
+
+        # The compressed build is about a third of the size.
+        $name = "$asset.gz"
+        if (-not $sums.ContainsKey($name)) { $name = $asset }
+        if (-not $sums.ContainsKey($name)) { throw "checksums.txt does not list $asset, so the download cannot be verified." }
+
+        $download = Join-Path $tmp $name
+        Write-Host "Downloading $name ..."
+        Get-Build -Uri "$base/$name" -OutFile $download
+
         $got = (Get-FileHash -Algorithm SHA256 -Path $download).Hash.ToLower()
-        if ($want -ne $got) { throw "Checksum mismatch for ${asset}: the download is damaged or was tampered with. Nothing was installed." }
+        if ($sums[$name] -ne $got) { throw "Checksum mismatch for ${name}: the download is damaged or was tampered with. Nothing was installed." }
         Write-Host 'Checksum verified.'
+
+        $binary = Join-Path $tmp $asset
+        if ($name -ne $asset) {
+            $packed = [IO.File]::OpenRead($download)
+            try {
+                $gzip = New-Object IO.Compression.GZipStream($packed, [IO.Compression.CompressionMode]::Decompress)
+                $unpacked = [IO.File]::Create($binary)
+                try { $gzip.CopyTo($unpacked) } finally { $unpacked.Dispose() }
+            }
+            finally { $packed.Dispose() }
+        }
 
         New-Item -ItemType Directory -Force -Path $binDir | Out-Null
         $target = Join-Path $binDir 'tpr.exe'
@@ -61,7 +100,7 @@ function Install-Tpr {
             # copy on a later run.
             Move-Item -Force -Path $target -Destination ($target + '.old-' + [DateTime]::UtcNow.ToString('yyyyMMddHHmmss'))
         }
-        Move-Item -Force -Path $download -Destination $target
+        Move-Item -Force -Path $binary -Destination $target
     }
     finally {
         Remove-Item -Recurse -Force -Path $tmp -ErrorAction SilentlyContinue

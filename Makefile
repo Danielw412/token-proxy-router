@@ -53,6 +53,7 @@ release-local: panel
 		echo "building $$os/$$arch"; \
 		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch $(GO) build -trimpath -ldflags "$(LDFLAGS)" -o $(DIST)/tpr-$$os-$$arch$$ext ./cmd/server || exit 1; \
 	done
+	cd $(DIST) && for file in tpr-*; do gzip -9 -n -c "$$file" > "$$file.gz" || exit 1; done
 	cp scripts/install.sh scripts/install.ps1 $(DIST)/
 	cd $(DIST) && sha256sum tpr-* install.sh install.ps1 > checksums.txt
 

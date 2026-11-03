@@ -58,12 +58,10 @@ On a machine with no browser, add `--no-browser` and open the printed address el
 
 ```sh
 tpr migrate --dry-run                # see what would be imported
-tpr migrate                          # or: tpr migrate --from /path/to/old/folder
-systemctl --user disable --now cliproxyapi.service
-tpr install
+tpr migrate && systemctl --user disable --now cliproxyapi.service && tpr install
 ```
 
-Your existing keys keep working. Run `tpr migrate` right before switching, because the old server keeps refreshing its logins until you stop it, and a copy taken earlier may stop working.
+Your existing keys keep working. Keep the second line as one command: `&&` stops at the first failure, so the old server is not stopped unless the import worked. It also runs `tpr migrate` right before switching, which matters because the old server keeps refreshing its logins until you stop it, and a copy taken earlier may stop working. To import from somewhere else, use `tpr migrate --from /path/to/old/folder`.
 
 To go back, run `tpr stop` and start the old server again. Any login TPR has refreshed by then no longer works on the old server, so log in to those accounts again there. Do not leave both running.
 

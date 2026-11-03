@@ -106,4 +106,4 @@ make release-local  # every platform, plus checksums and install scripts, in dis
 
 ## Releasing
 
-Push a `vX.Y.Z` tag. `release.yml` tests, builds the panel, cross-compiles every platform with `CGO_ENABLED=0`, and publishes a GitHub Release with the binaries, `checksums.txt` and the install scripts. The file names (`tpr-<os>-<arch>[.exe]`) are what the updater and the install scripts look for, so do not change them.
+Push a `vX.Y.Z` tag. `release.yml` tests, builds the panel, cross-compiles every platform with `CGO_ENABLED=0`, and publishes a GitHub Release with the binaries, a gzip copy of each, `checksums.txt` and the install scripts. The file names (`tpr-<os>-<arch>[.exe]` and the same with `.gz`) are what the updater and the install scripts look for, so do not change them. The install scripts and the updater download the `.gz` when the release has one. Keep the plain files, because installs from before v1.0.1 update from them.

@@ -26,13 +26,14 @@ const (
 	// so only set it for a server you control.
 	EnvBaseURL = "TPR_UPDATE_BASE_URL"
 
-	defaultAPIBase  = "https://api.github.com"
-	checksumsAsset  = "checksums.txt"
-	checkTimeout    = 15 * time.Second
-	downloadTimeout = 15 * time.Minute
-	maxBinarySize   = 400 << 20
-	maxMetadataSize = 8 << 20
-	userAgent       = "TokenProxyRouter-updater"
+	defaultAPIBase   = "https://api.github.com"
+	checksumsAsset   = "checksums.txt"
+	compressedSuffix = ".gz"
+	checkTimeout     = 15 * time.Second
+	downloadTimeout  = 15 * time.Minute
+	maxBinarySize    = 400 << 20
+	maxMetadataSize  = 8 << 20
+	userAgent        = "TokenProxyRouter-updater"
 )
 
 // Version metadata stamped into release builds by the Makefile and release workflow.

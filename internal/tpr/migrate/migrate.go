@@ -441,8 +441,8 @@ func (r Report) Print(w io.Writer, dryRun bool, goos string) {
 		fmt.Fprintln(w, "  1. Stop the old server (close its window, or end its Scheduled Task).")
 		fmt.Fprintln(w, "  2. tpr install")
 	} else {
-		fmt.Fprintln(w, "  systemctl --user disable --now cliproxyapi.service   # or stop it however you run it")
-		fmt.Fprintln(w, "  tpr install")
+		fmt.Fprintln(w, "  systemctl --user disable --now cliproxyapi.service && tpr install")
+		fmt.Fprintln(w, "Replace the first part if you run the old server another way.")
 	}
 	fmt.Fprintln(w, "To switch back: stop TPR with `tpr stop`, then start the old server again. Any login TPR has refreshed by then must be logged in again on the old server.")
 }

@@ -42,11 +42,26 @@ esac
 
 asset="tpr-$os-$arch"
 
+# fetch URL FILE [progress]
+# With "progress" and a terminal, shows the download's speed and time left. A
+# connection that stops moving fails rather than waiting forever.
 fetch() {
+	show=""
+	if [ "${3:-}" = "progress" ] && [ -t 2 ]; then
+		show=yes
+	fi
 	if command -v curl >/dev/null 2>&1; then
-		curl -fsSL --retry 3 -o "$2" "$1"
+		if [ -n "$show" ]; then
+			curl -fSL --retry 3 --connect-timeout 30 --speed-limit 1024 --speed-time 120 -o "$2" "$1"
+		else
+			curl -fsSL --retry 3 --connect-timeout 30 --speed-limit 1024 --speed-time 120 -o "$2" "$1"
+		fi
 	elif command -v wget >/dev/null 2>&1; then
-		wget -q -O "$2" "$1"
+		if [ -n "$show" ]; then
+			wget -T 120 -O "$2" "$1"
+		else
+			wget -q -T 120 -O "$2" "$1"
+		fi
 	else
 		fail "curl or wget is required."
 	fi
@@ -62,18 +77,36 @@ sha256_of() {
 	fi
 }
 
+checksum_of() {
+	awk -v name="$1" '$2 == name || $2 == "*" name {print $1; exit}' "$tmp_dir/checksums.txt"
+}
+
 tmp_dir="$(mktemp -d)"
-trap 'rm -rf "$tmp_dir"' EXIT INT TERM
+trap 'rm -rf "$tmp_dir"' EXIT
+# Ctrl-C ends the install here, rather than reading as a failed download.
+trap 'exit 130' INT TERM
 
-echo "Downloading $asset ..."
-fetch "$BASE/$asset" "$tmp_dir/$asset" || fail "could not download $BASE/$asset. Check your connection, and that a release exists."
-fetch "$BASE/checksums.txt" "$tmp_dir/checksums.txt" || fail "could not download checksums.txt."
+fetch "$BASE/checksums.txt" "$tmp_dir/checksums.txt" || fail "could not download $BASE/checksums.txt. Check your connection, and that a release exists."
 
-want="$(awk -v name="$asset" '$2 == name || $2 == "*" name {print $1; exit}' "$tmp_dir/checksums.txt")"
+# The compressed build is about a third of the size.
+download="$asset.gz"
+want="$(checksum_of "$download")"
+if [ -z "$want" ] || ! command -v gzip >/dev/null 2>&1; then
+	download="$asset"
+	want="$(checksum_of "$download")"
+fi
 [ -n "$want" ] || fail "checksums.txt does not list $asset, so the download cannot be verified."
-got="$(sha256_of "$tmp_dir/$asset")"
-[ "$want" = "$got" ] || fail "checksum mismatch for $asset: the download is damaged or was tampered with. Nothing was installed."
+
+echo "Downloading $download ..."
+fetch "$BASE/$download" "$tmp_dir/$download" progress || fail "could not download $BASE/$download. Check your connection, and that a release exists."
+
+got="$(sha256_of "$tmp_dir/$download")"
+[ "$want" = "$got" ] || fail "checksum mismatch for $download: the download is damaged or was tampered with. Nothing was installed."
 echo "Checksum verified."
+
+if [ "$download" != "$asset" ]; then
+	gzip -dc "$tmp_dir/$download" >"$tmp_dir/$asset" || fail "could not unpack $download. Nothing was installed."
+fi
 
 mkdir -p "$BIN_DIR"
 chmod 700 "$DATA_DIR" "$BIN_DIR" 2>/dev/null || true
@@ -81,6 +114,8 @@ chmod 755 "$tmp_dir/$asset"
 # The move lands on the same disk, so a running copy is replaced in one step.
 mv -f "$tmp_dir/$asset" "$BIN_DIR/.tpr-new"
 mv -f "$BIN_DIR/.tpr-new" "$BIN_DIR/tpr"
+# exec below replaces this shell, so the exit trap will not get to do this.
+rm -rf "$tmp_dir"
 
 tpr="$BIN_DIR/tpr"
 if [ "$#" -eq 0 ]; then

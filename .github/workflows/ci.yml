@@ -85,7 +85,9 @@ jobs:
           esac
           mkdir -p release
           CGO_ENABLED=0 go build -ldflags "-X main.Version=v0.0.0-smoke -X main.Commit=$GITHUB_SHA" -o "release/$asset" ./cmd/server
-          (cd release && sha256sum "$asset" > checksums.txt)
+          # Only the compressed build, so the installers have to unpack it.
+          gzip -9 -n "release/$asset"
+          (cd release && sha256sum "$asset.gz" > checksums.txt)
           python="$(command -v python3 || command -v python)"
           "$python" -m http.server 18400 --bind 127.0.0.1 --directory release >/dev/null 2>&1 &
           # Wait until it answers: a slow runner takes longer than any fixed pause.
@@ -107,9 +109,10 @@ jobs:
       - name: Install with install.sh
         if: runner.os != 'Windows'
         run: sh scripts/install.sh install --no-service
+      # Windows PowerShell 5.1, because that is what a Windows machine opens by default.
       - name: Install with install.ps1
         if: runner.os == 'Windows'
-        shell: pwsh
+        shell: powershell
         run: |
           $env:TPR_INSTALL_ARGS = 'install --no-service'
           Get-Content -Raw scripts/install.ps1 | Invoke-Expression

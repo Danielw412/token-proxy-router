@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.0.1
+
+### Changed
+
+- Installs and updates download a compressed build, about a third of the size. The plain files are
+  still published so that v1.0.0 can update.
+- The install scripts show speed and time left, fail on a stalled connection, and no longer report
+  Ctrl-C as a failed download.
+
+### Fixed
+
+- `tpr install` on Linux wrote a systemd unit that systemd refused to start, because
+  `WorkingDirectory=` was quoted. The service never came up. Tests now check the unit with
+  `systemd-analyze verify`.
+- The switch-over commands in the docs and in `tpr migrate` stop at the first failure, so a failed
+  step cannot stop the old server with nothing to replace it.
+- `install.sh` no longer leaves its temp folder behind after a successful install.
+
 ## v1.0.0
 
 First release of Token Proxy Router, based on CLIProxyAPI v8.0.52 and Management Center v1.27.2.

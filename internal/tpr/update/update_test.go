@@ -2,6 +2,7 @@ package update
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -12,6 +13,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -24,6 +26,7 @@ const testAsset = "tpr-testos-testarch"
 type fakeReleases struct {
 	tag         string
 	binary      []byte
+	compressed  []byte
 	checksums   string
 	status      int
 	noChecksums bool
@@ -47,6 +50,9 @@ func (f *fakeReleases) start(t *testing.T) {
 			return
 		}
 		assets := []Asset{{Name: testAsset, URL: f.server.URL + "/dl/" + testAsset}}
+		if f.compressed != nil {
+			assets = append(assets, Asset{Name: testAsset + compressedSuffix, URL: f.server.URL + "/dl/" + testAsset + compressedSuffix})
+		}
 		if !f.noChecksums {
 			assets = append(assets, Asset{Name: checksumsAsset, URL: f.server.URL + "/dl/" + checksumsAsset})
 		}
@@ -56,6 +62,7 @@ func (f *fakeReleases) start(t *testing.T) {
 	mux.HandleFunc("/repos/"+Repo+"/releases/latest", release)
 	mux.HandleFunc("/repos/"+Repo+"/releases/tags/", release)
 	mux.HandleFunc("/dl/"+testAsset, func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(f.binary) })
+	mux.HandleFunc("/dl/"+testAsset+compressedSuffix, func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(f.compressed) })
 	mux.HandleFunc("/dl/"+checksumsAsset, func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(f.checksums)) })
 	f.server = httptest.NewServer(mux)
 	t.Cleanup(f.server.Close)
@@ -162,6 +169,99 @@ func TestApplyRejectsChecksumMismatch(t *testing.T) {
 		t.Fatalf("progress = %+v", got)
 	}
 	noTempFilesLeft(t, u)
+}
+
+func gzipped(t *testing.T, data []byte) []byte {
+	t.Helper()
+	var out bytes.Buffer
+	writer := gzip.NewWriter(&out)
+	if _, err := writer.Write(data); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return out.Bytes()
+}
+
+func TestApplyPrefersTheCompressedBuild(t *testing.T) {
+	packed := gzipped(t, []byte("new binary"))
+	// The plain file is wrong on purpose, so the test fails if it gets used.
+	releases := &fakeReleases{
+		tag:        "v1.2.0",
+		binary:     []byte("the plain file"),
+		compressed: packed,
+		checksums:  checksumLine(packed, testAsset+compressedSuffix),
+	}
+	u := testUpdater(t, "v1.1.0", releases)
+	if _, err := u.Apply(context.Background(), ApplyOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if readTarget(t, u) != "new binary" {
+		t.Fatalf("target = %q", readTarget(t, u))
+	}
+	info, err := os.Stat(u.Target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o100 == 0 {
+		t.Fatalf("target is not executable: %v", info.Mode())
+	}
+	noTempFilesLeft(t, u)
+}
+
+func TestApplyRejectsCompressedChecksumMismatch(t *testing.T) {
+	packed := gzipped(t, []byte("tampered"))
+	releases := &fakeReleases{
+		tag:        "v1.2.0",
+		binary:     []byte("x"),
+		compressed: packed,
+		checksums:  checksumLine([]byte("the real one"), testAsset+compressedSuffix),
+	}
+	u := testUpdater(t, "v1.1.0", releases)
+	if _, err := u.Apply(context.Background(), ApplyOptions{}); err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
+		t.Fatalf("err = %v", err)
+	}
+	if readTarget(t, u) != "old binary" {
+		t.Fatal("a bad download must not replace the binary")
+	}
+	noTempFilesLeft(t, u)
+}
+
+func TestApplyRejectsDamagedCompressedBuild(t *testing.T) {
+	// The checksum matches, but what it covers does not unpack.
+	packed := []byte("this is not gzip data")
+	releases := &fakeReleases{
+		tag:        "v1.2.0",
+		binary:     []byte("x"),
+		compressed: packed,
+		checksums:  checksumLine(packed, testAsset+compressedSuffix),
+	}
+	u := testUpdater(t, "v1.1.0", releases)
+	if _, err := u.Apply(context.Background(), ApplyOptions{}); err == nil || !strings.Contains(err.Error(), "unpack") {
+		t.Fatalf("err = %v", err)
+	}
+	if readTarget(t, u) != "old binary" {
+		t.Fatal("a bad download must not replace the binary")
+	}
+	noTempFilesLeft(t, u)
+}
+
+func TestApplyRefusesWhenChecksumsOmitTheCompressedBuild(t *testing.T) {
+	packed := gzipped(t, []byte("new binary"))
+	releases := &fakeReleases{
+		tag:        "v1.2.0",
+		binary:     []byte("x"),
+		compressed: packed,
+		checksums:  checksumLine([]byte("x"), testAsset),
+	}
+	u := testUpdater(t, "v1.1.0", releases)
+	if _, err := u.Apply(context.Background(), ApplyOptions{}); err == nil || !strings.Contains(err.Error(), "does not list") {
+		t.Fatalf("err = %v", err)
+	}
+	if readTarget(t, u) != "old binary" {
+		t.Fatal("must not swap unverified binary")
+	}
 }
 
 func TestApplyRefusesWithoutChecksumsFile(t *testing.T) {

@@ -2,6 +2,7 @@ package update
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -232,9 +233,13 @@ var ErrUpToDate = errors.New("already up to date")
 // Download fetches and verifies a release binary into the target's folder. It
 // returns the verified temp file, and removes it on any failure.
 func (u *Updater) Download(ctx context.Context, plan Plan, onVerify func()) (string, error) {
-	asset, ok := plan.Release.asset(u.Asset)
-	if !ok {
-		return "", fmt.Errorf("release %s has no build for this machine (%s)", plan.Tag, u.Asset)
+	// The compressed build is about a third of the size. Older releases do not have one.
+	asset, compressed := plan.Release.asset(u.Asset + compressedSuffix)
+	if !compressed {
+		var ok bool
+		if asset, ok = plan.Release.asset(u.Asset); !ok {
+			return "", fmt.Errorf("release %s has no build for this machine (%s)", plan.Tag, u.Asset)
+		}
 	}
 	checksums, ok := plan.Release.asset(checksumsAsset)
 	if !ok {
@@ -244,9 +249,9 @@ func (u *Updater) Download(ctx context.Context, plan Plan, onVerify func()) (str
 	if err := u.Source.download(ctx, checksums.URL, &sums, maxMetadataSize); err != nil {
 		return "", fmt.Errorf("get checksums: %w", err)
 	}
-	want, ok := ParseChecksums(sums.String())[u.Asset]
+	want, ok := ParseChecksums(sums.String())[asset.Name]
 	if !ok {
-		return "", fmt.Errorf("%s does not list %s, so it cannot be verified", checksumsAsset, u.Asset)
+		return "", fmt.Errorf("%s does not list %s, so it cannot be verified", checksumsAsset, asset.Name)
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(u.Target), ".tpr-new-*")
 	if err != nil {
@@ -267,7 +272,16 @@ func (u *Updater) Download(ctx context.Context, plan Plan, onVerify func()) (str
 	}
 	got := hex.EncodeToString(hasher.Sum(nil))
 	if got != want {
-		return fail(fmt.Errorf("checksum mismatch for %s: the download is damaged or was tampered with, so nothing was changed", u.Asset))
+		return fail(fmt.Errorf("checksum mismatch for %s: the download is damaged or was tampered with, so nothing was changed", asset.Name))
+	}
+	if compressed {
+		unpacked, errUnpack := unpackBinary(tmp)
+		if errUnpack != nil {
+			return fail(fmt.Errorf("unpack %s: %w", asset.Name, errUnpack))
+		}
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+		tmp, tmpName = unpacked, unpacked.Name()
 	}
 	if err := tmp.Chmod(0o755); err != nil {
 		return fail(err)
@@ -277,6 +291,31 @@ func (u *Updater) Download(ctx context.Context, plan Plan, onVerify func()) (str
 		return "", err
 	}
 	return tmpName, nil
+}
+
+// unpackBinary decompresses a verified download into a new temp file beside it.
+func unpackBinary(packed *os.File) (*os.File, error) {
+	if _, err := packed.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	reader, err := gzip.NewReader(packed)
+	if err != nil {
+		return nil, err
+	}
+	out, err := os.CreateTemp(filepath.Dir(packed.Name()), ".tpr-new-*")
+	if err != nil {
+		return nil, err
+	}
+	n, err := io.Copy(out, io.LimitReader(reader, maxBinarySize+1))
+	if err == nil && n > maxBinarySize {
+		err = fmt.Errorf("it is larger than the %d byte limit", int64(maxBinarySize))
+	}
+	if err != nil {
+		_ = out.Close()
+		_ = os.Remove(out.Name())
+		return nil, err
+	}
+	return out, nil
 }
 
 func (u *Updater) probe(ctx context.Context, path string) error {
