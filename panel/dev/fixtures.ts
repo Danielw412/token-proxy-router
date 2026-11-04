@@ -357,7 +357,7 @@ export const routerPools = (now: number, zero = false, mutable?: RouterMutable) 
         account_order: seeds.map((seed) => seed.id),
         reserve_accounts: reserve,
         disabled_accounts: disabled,
-        manual_fallback: 'auto',
+        manual_fallback: state?.fallback ?? 'auto',
         quota_poll_minutes: 5,
         stale_after_minutes: 30,
         model_level_limits: true,
@@ -412,6 +412,7 @@ export type RouterMutable = Record<
     autoStart?: boolean;
     threshold?: number;
     strategy?: string;
+    fallback?: string;
     reserve?: string[];
     disabled?: string[];
     plans?: Array<{ id: string; account: string; at: string; daily: boolean; source: string }>;

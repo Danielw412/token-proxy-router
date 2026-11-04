@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.0.2
+
+### Added
+
+- The Routing page has a *Route all traffic through* picker: choose one account to send every
+  request in the pool to, or *Automatic*. While an account is chosen, you can also choose whether
+  requests route automatically or are rejected if it becomes unavailable.
+
+### Changed
+
+- The Routing page opens on the Codex pool instead of Claude.
+
 ## v1.0.1
 
 ### Changed

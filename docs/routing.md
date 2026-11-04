@@ -74,8 +74,11 @@ counts when it ranks first. This is what stops the router flapping.
 ## Manual control
 
 - **Use now** makes an account current and stays automatic from there.
-- **Pin** sends everything to one account. If it becomes unavailable, `manual_fallback`
-  decides: `auto` routes automatically until it returns, `strict` rejects requests.
+- **Pin** sends everything to one account, including conversations already running on
+  another. Choose the account under *Route all traffic through* at the top of the Routing
+  page, or with *Pin* on its row. An open Codex WebSocket finishes on its account first.
+  If the pinned account becomes unavailable, `manual_fallback` decides: `auto` routes
+  automatically until it returns, `strict` rejects requests.
 - **Automatic** returns to automatic routing.
 - **Roles.** *Normal*; *Reserve* (`reserve_accounts`) is used automatically only when no
   normal account has quota; *Off* (`disabled_accounts`) is never chosen automatically,

@@ -19,8 +19,8 @@ import {
   ProviderName,
   QuotaBar,
   ResourceError,
-  Segmented,
 } from '@/components/tpr/Ui';
+import { maskEmails } from '@/components/tpr/emailText';
 import { formatDuration, formatWhen } from '@/features/quota/chart/chartModel';
 import { providerColor } from '@/features/quota/providerColor';
 import { RoutingPage } from '@/features/routing/RoutingPage';
@@ -34,11 +34,15 @@ import {
   type RouterAccount,
   type RouterPool,
 } from '@/services/api/tpr';
-import { useNotificationStore } from '@/stores';
+import { useNotificationStore, usePrivacyStore } from '@/stores';
 import { getErrorMessage } from '@/utils/helpers';
 import styles from './RouterPage.module.scss';
 
 const REFRESH_MS = 15_000;
+/** The pool the page opens on. */
+const DEFAULT_POOL = 'codex';
+/** The route picker's value for automatic routing. Account IDs are never empty or this. */
+const ROUTE_AUTO = '__auto__';
 
 const stateTone = (state: string): 'good' | 'warn' | 'bad' | 'neutral' => {
   if (state === 'ok') return 'good';
@@ -63,7 +67,7 @@ export function RouterPage() {
   );
   useHeaderRefresh(refresh);
 
-  const [provider, setProvider] = useState('claude');
+  const [provider, setProvider] = useState(DEFAULT_POOL);
   const [busy, setBusy] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const pools = data ?? [];
@@ -179,11 +183,34 @@ function PoolControls({
   const color = providerColor(pool.provider);
   const provider = pool.provider;
   const current = pool.accounts.find((account) => account.id === pool.routing);
+  const showEmails = usePrivacyStore((state) => state.showEmails);
+  const pinned = pool.mode === 'manual' ? pool.pinned || pool.routing : '';
 
-  const setMode = (mode: 'auto' | 'manual') => {
-    if (mode === pool.mode) return;
-    const target = pool.routing || pool.accounts[0]?.id;
-    void act(() => tprApi.routerSetMode(provider, mode, target));
+  // A Select can only show plain text, so emails are masked here the way PrivateEmail blurs them.
+  // Plan and quota keep the options apart while emails are hidden, and match the table below.
+  const accountOption = (account: RouterAccount) => {
+    const name = account.email || account.label || account.id;
+    const percent = (value: number | null | undefined) =>
+      value === null || value === undefined ? '—' : `${Math.round(value)}%`;
+    const parts = [
+      showEmails ? name : maskEmails(name),
+      account.plan,
+      t('tpr.router.route_quota', {
+        short: percent(account.short?.remaining),
+        long: percent(account.long?.remaining),
+      }),
+      account.state === 'ok' ? '' : t(`tpr.router.state_${account.state}`, { defaultValue: account.state }),
+    ];
+    return { value: account.id, label: parts.filter(Boolean).join(' · ') };
+  };
+
+  const route = (value: string) => {
+    if (value === ROUTE_AUTO) {
+      if (pool.mode !== 'auto') void act(() => tprApi.routerSetMode(provider, 'auto'));
+      return;
+    }
+    if (value === pinned) return;
+    void act(() => tprApi.routerSetMode(provider, 'manual', value));
   };
 
   return (
@@ -198,18 +225,42 @@ function PoolControls({
           <p className={styles.currentReason}>{pool.routingNote || t('tpr.router.no_reason')}</p>
         </div>
         <div className={styles.currentSide}>
-          <Segmented<'auto' | 'manual'>
-            ariaLabel={t('tpr.router.mode')}
-            value={pool.mode}
-            onChange={setMode}
-            options={[
-              { value: 'auto', label: t('tpr.router.mode_auto') },
-              { value: 'manual', label: t('tpr.router.mode_pinned') },
-            ]}
-          />
+          <label className={styles.routeLabel} htmlFor={`route-${provider}`}>
+            {t('tpr.router.route_all')}
+          </label>
+          <div className={styles.routeSelect}>
+            <Select
+              id={`route-${provider}`}
+              value={pinned || ROUTE_AUTO}
+              disabled={busy}
+              onChange={route}
+              dropdownMinWidth={380}
+              options={[
+                { value: ROUTE_AUTO, label: t('tpr.router.route_auto') },
+                ...pool.accounts.map(accountOption),
+              ]}
+            />
+          </div>
           <p className={styles.modeHint}>
-            {pool.mode === 'auto' ? t('tpr.router.mode_auto_hint') : t('tpr.router.mode_pinned_hint')}
+            {pinned ? t('tpr.router.mode_pinned_hint') : t('tpr.router.mode_auto_hint')}
           </p>
+          {pinned ? (
+            <div className={styles.routeSelect}>
+              <Select
+                value={pool.settings.manual_fallback === 'strict' ? 'strict' : 'auto'}
+                size="sm"
+                ariaLabel={t('tpr.router.fallback_label')}
+                disabled={busy}
+                onChange={(value) =>
+                  void act(() => tprApi.routerPatchSettings(provider, { manual_fallback: value }))
+                }
+                options={[
+                  { value: 'auto', label: t('tpr.router.fallback_auto') },
+                  { value: 'strict', label: t('tpr.router.fallback_strict') },
+                ]}
+              />
+            </div>
+          ) : null}
         </div>
       </Panel>
 
