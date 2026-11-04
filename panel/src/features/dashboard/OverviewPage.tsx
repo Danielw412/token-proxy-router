@@ -18,6 +18,8 @@ import {
   Stat,
 } from '@/components/tpr/Ui';
 import { DAY_MS, formatBurn, formatDuration, formatPercentValue, formatSignedPercent, formatWhen, startOfLocalDay } from '@/features/quota/chart/chartModel';
+import { providerColor } from '@/features/quota/providerColor';
+import { WindowMeter } from '@/features/quota/WindowMeter';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useNow } from '@/hooks/useNow';
 import { useTprResource } from '@/hooks/useTprResource';
@@ -43,51 +45,116 @@ function PoolTile({
 }) {
   const { t } = useTranslation();
   const routed = router?.accounts.find((account) => account.id === router.routing);
+  const color = providerColor(pool.provider);
+  const weeklyLabel = t('tpr.quota.window_weekly');
+  const fiveHourLabel = t('tpr.quota.window_five_hour');
   return (
-    <Link to="/quota" className={styles.pool}>
-      <div className={styles.poolHead}>
-        <ProviderIcon provider={pool.provider} size={18} />
-        <span className={styles.poolName}>
-          <ProviderName provider={pool.provider} />
-        </span>
-        <span className={styles.poolCount}>{t('tpr.quota.account_count', { count: pool.accounts.length })}</span>
-      </div>
-      <div className={styles.poolFigure}>
-        <span className={styles.big}>{formatPercentValue(pool.remainingPercent)}</span>
-        <span className={styles.of}>
-          {t('tpr.quota.of_capacity', { capacity: formatPercentValue(pool.capacityPercent) })}
-        </span>
-      </div>
-      <dl className={styles.poolStats}>
-        <div>
-          <dt>{t('tpr.dashboard.burn')}</dt>
-          <dd>{formatBurn(pool.burnPerHour)}</dd>
+    <article className={styles.pool}>
+      <Link to="/quota" className={styles.poolLink}>
+        <div className={styles.poolHead}>
+          <ProviderIcon provider={pool.provider} size={18} />
+          <span className={styles.poolName}>
+            <ProviderName provider={pool.provider} />
+          </span>
+          <span className={styles.poolCount}>{t('tpr.quota.account_count', { count: pool.accounts.length })}</span>
         </div>
-        <div>
-          <dt>{t('tpr.quota.next_reset')}</dt>
-          <dd>
-            {pool.nextReset
-              ? `${formatSignedPercent(pool.nextReset.deltaPercent)} ${formatWhen(Date.parse(pool.nextReset.at), locale)}`
-              : t('tpr.quota.none_soon')}
-          </dd>
+        <div className={styles.poolFigures}>
+          <div className={styles.poolFigure}>
+            <span className={styles.figureLabel}>{weeklyLabel}</span>
+            <span className={styles.figureValue}>
+              <span className={styles.big}>{formatPercentValue(pool.remainingPercent)}</span>
+              <span className={styles.of}>
+                {t('tpr.quota.of_capacity', { capacity: formatPercentValue(pool.capacityPercent) })}
+              </span>
+            </span>
+          </div>
+          <div className={styles.poolFigure}>
+            <span className={styles.figureLabel}>{fiveHourLabel}</span>
+            <span className={styles.figureValue}>
+              {pool.fiveHourCapacityPercent > 0 ? (
+                <>
+                  <span className={styles.big}>{formatPercentValue(pool.fiveHourRemainingPercent)}</span>
+                  <span className={styles.of}>
+                    {t('tpr.quota.of_capacity', {
+                      capacity: formatPercentValue(pool.fiveHourCapacityPercent),
+                    })}
+                  </span>
+                </>
+              ) : (
+                <span className={styles.big}>—</span>
+              )}
+            </span>
+          </div>
         </div>
-        <div className={styles.routed}>
-          <dt>{t('tpr.dashboard.routed')}</dt>
-          <dd>
-            {routed ? (
-              <PrivateEmail value={routed.email} fallback={routed.label} />
-            ) : (
-              t('tpr.dashboard.routed_none')
-            )}
-          </dd>
-        </div>
-      </dl>
-      {pool.poolEmptyAt && (
-        <div className={styles.poolWarn}>
-          {t('tpr.dashboard.empties_in', { time: formatDuration(Date.parse(pool.poolEmptyAt) - now) })}
-        </div>
+        <dl className={styles.poolStats}>
+          <div>
+            <dt>{t('tpr.dashboard.burn')}</dt>
+            <dd>{formatBurn(pool.burnPerHour)}</dd>
+          </div>
+          <div>
+            <dt>{t('tpr.quota.next_reset')}</dt>
+            <dd>
+              {pool.nextReset
+                ? `${formatSignedPercent(pool.nextReset.deltaPercent)} ${formatWhen(Date.parse(pool.nextReset.at), locale)}`
+                : t('tpr.quota.none_soon')}
+            </dd>
+          </div>
+          <div className={styles.routed}>
+            <dt>{t('tpr.dashboard.routed')}</dt>
+            <dd>
+              {routed ? (
+                <PrivateEmail value={routed.email} fallback={routed.label} />
+              ) : (
+                t('tpr.dashboard.routed_none')
+              )}
+            </dd>
+          </div>
+        </dl>
+        {pool.poolEmptyAt && (
+          <div className={styles.poolWarn}>
+            {t('tpr.dashboard.empties_in', { time: formatDuration(Date.parse(pool.poolEmptyAt) - now) })}
+          </div>
+        )}
+      </Link>
+      {pool.accounts.length > 0 && (
+        <ul className={styles.accounts} aria-label={t('tpr.dashboard.account_windows')}>
+          {pool.accounts.map((account) => {
+            const name = account.label || account.id;
+            return (
+              <li key={account.id} className={styles.account}>
+                <div className={styles.accountName}>
+                  <span className={styles.accountEmail}>
+                    <PrivateEmail value={account.email} fallback={name} />
+                  </span>
+                  <span className={styles.accountMeta}>
+                    {account.plan ? <span className={styles.plan}>{account.plan}</span> : null}
+                    {account.status !== 'ok' ? (
+                      <Badge tone={account.status === 'off' ? 'neutral' : 'warn'}>
+                        {t(`tpr.router.state_${account.status}`, { defaultValue: account.status })}
+                      </Badge>
+                    ) : null}
+                  </span>
+                </div>
+                <WindowMeter
+                  label={fiveHourLabel}
+                  remaining={account.fiveHourRemainingPercent}
+                  resetAt={account.fiveHourResetAt}
+                  color={color}
+                  ariaLabel={`${name} ${fiveHourLabel}`}
+                />
+                <WindowMeter
+                  label={weeklyLabel}
+                  remaining={account.remainingPercent}
+                  resetAt={account.resetAt}
+                  color={color}
+                  ariaLabel={`${name} ${weeklyLabel}`}
+                />
+              </li>
+            );
+          })}
+        </ul>
       )}
-    </Link>
+    </article>
   );
 }
 

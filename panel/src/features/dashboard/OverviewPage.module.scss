@@ -5,18 +5,83 @@
 }
 
 .pool {
-  display: block;
   min-width: 0;
   padding: 18px 20px;
   border: 1px solid var(--border-color);
   border-radius: 12px;
   background: var(--bg-primary);
-  color: inherit;
   transition: border-color var(--dur-hover) ease;
 
-  &:hover {
+  &:has(.poolLink:hover) {
     border-color: var(--border-hover);
   }
+}
+
+.poolLink {
+  display: block;
+  color: inherit;
+}
+
+.poolFigures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 40px;
+  margin-top: 8px;
+}
+
+.figureLabel {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+
+.figureValue {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.accounts {
+  display: flex;
+  flex-direction: column;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.account {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  padding: 9px 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.accountName {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.accountEmail {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accountMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.plan {
+  text-transform: capitalize;
 }
 
 .poolHead {
@@ -38,9 +103,8 @@
 
 .poolFigure {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-top: 8px;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .big {
@@ -172,6 +236,15 @@
 @media (max-width: $breakpoint-mobile) {
   .pools {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .account {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px 16px;
+  }
+
+  .accountName {
+    grid-column: 1 / -1;
   }
 
   .tiles {

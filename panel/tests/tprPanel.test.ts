@@ -7,6 +7,7 @@ import { countDone } from '@/features/setup/quickStartLogic';
 import { groupAccountsByProvider } from '@/features/accounts/accountGroups';
 import { readBasicSettings, writeBasicSettings } from '@/features/settings/basicSettings';
 import { recentFailures } from '@/features/dashboard/overviewLogic';
+import { sessionCounts } from '@/features/tprRouter/sessionCounts';
 import { maskEmails, splitEmails } from '@/components/tpr/emailText';
 import en from '@/i18n/locales/en.json';
 import ko from '@/i18n/locales/ko.json';
@@ -76,6 +77,18 @@ describe('router state', () => {
     expect(claude.routing).toBe('claude-alice');
   });
 
+  test('only busy and warm sessions count as live; cold ones are split out', () => {
+    const pool = normalizeRouterPool({
+      session_count: 9,
+      accounts: [
+        { id: 'a', sessions: 7, busy_sessions: 1, idle_sessions: 2 },
+        { id: 'b', sessions: 2, busy_sessions: 1, idle_sessions: 0 },
+      ],
+    });
+    expect(sessionCounts(pool)).toEqual({ running: 2, idle: 2, cold: 5 });
+    expect(sessionCounts(normalizeRouterPool(undefined))).toEqual({ running: 0, idle: 0, cold: 0 });
+  });
+
   test('a role change moves the account between the two settings lists', () => {
     const settings = { reserve_accounts: ['a'], disabled_accounts: ['b'] };
     expect(applyRoleChange(settings, 'a', 'off')).toEqual({
@@ -103,6 +116,25 @@ describe('quota normalization', () => {
     expect(pool.recorded).toEqual([{ at: '2026-10-26T12:00:00Z', percent: null }]);
     expect(pool.firstEmpty).toBeNull();
     expect(pool.capacityPercent).toBe(0);
+    expect(pool.fiveHourCapacityPercent).toBe(0);
+  });
+
+  test('reads the 5-hour window next to the requested one', () => {
+    const pool = normalizePool({
+      provider: 'codex',
+      five_hour_remaining_percent: 130,
+      five_hour_capacity_percent: 200,
+      accounts: [
+        { id: 'a', remaining_percent: 90, five_hour_remaining_percent: 30, five_hour_reset_at: '2026-10-26T12:00:00Z' },
+        { id: 'b', remaining_percent: 80, five_hour_remaining_percent: null },
+      ],
+    });
+    expect(pool.fiveHourRemainingPercent).toBe(130);
+    expect(pool.fiveHourCapacityPercent).toBe(200);
+    expect(pool.accounts[0].fiveHourRemainingPercent).toBe(30);
+    expect(pool.accounts[0].fiveHourResetAt).toBe('2026-10-26T12:00:00Z');
+    expect(pool.accounts[1].fiveHourRemainingPercent).toBeNull();
+    expect(pool.accounts[1].fiveHourResetAt).toBeNull();
   });
 });
 

@@ -177,6 +177,8 @@ const handleTpr = async (
             accounts,
             capacity_percent: pool.capacity_percent * share,
             remaining_percent: pool.remaining_percent * share,
+            five_hour_capacity_percent: pool.five_hour_capacity_percent * share,
+            five_hour_remaining_percent: pool.five_hour_remaining_percent * share,
             recorded: scaled(pool.recorded, share),
             projected: scaled(pool.projected, share),
           };

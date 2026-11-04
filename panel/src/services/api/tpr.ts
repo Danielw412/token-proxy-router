@@ -45,6 +45,9 @@ export interface PoolAccount {
   remainingPercent: number | null;
   resetAt: string | null;
   status: string;
+  /** The 5-hour window, whichever window the request chose. */
+  fiveHourRemainingPercent: number | null;
+  fiveHourResetAt: string | null;
 }
 
 export interface PoolReset {
@@ -58,6 +61,9 @@ export interface QuotaPool {
   accounts: PoolAccount[];
   remainingPercent: number;
   capacityPercent: number;
+  /** 5-hour totals, weighted like remainingPercent. Capacity is 0 when no window is known. */
+  fiveHourRemainingPercent: number;
+  fiveHourCapacityPercent: number;
   weightNote: string;
   poolEmptyAt: string | null;
   firstEmpty: { account: string; at: string } | null;
@@ -101,9 +107,13 @@ export const normalizePool = (raw: unknown): QuotaPool => {
         remainingPercent: asNumber(account.remaining_percent),
         resetAt: asString(account.reset_at) || null,
         status: asString(account.status) || 'ok',
+        fiveHourRemainingPercent: asNumber(account.five_hour_remaining_percent),
+        fiveHourResetAt: asString(account.five_hour_reset_at) || null,
       })),
     remainingPercent: asNumber(pool.remaining_percent) ?? 0,
     capacityPercent: asNumber(pool.capacity_percent) ?? 0,
+    fiveHourRemainingPercent: asNumber(pool.five_hour_remaining_percent) ?? 0,
+    fiveHourCapacityPercent: asNumber(pool.five_hour_capacity_percent) ?? 0,
     weightNote: asString(pool.weight_note),
     poolEmptyAt: asString(pool.pool_empty_at) || null,
     firstEmpty:

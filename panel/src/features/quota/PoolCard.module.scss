@@ -34,6 +34,56 @@
   margin-bottom: 8px;
 }
 
+.figures {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 28px;
+  min-width: 0;
+}
+
+.secondFigure {
+  display: flex;
+  align-items: baseline;
+  gap: 2px 8px;
+  padding-left: 28px;
+  border-left: 1px solid var(--border-color);
+}
+
+.secondLabel {
+  color: var(--text-secondary);
+  font-size: 13.5px;
+}
+
+.secondValue {
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.windowRow {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.windowLabel {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.windowValue {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .figure {
   display: flex;
   align-items: baseline;
@@ -161,12 +211,6 @@
   overflow: hidden;
   color: var(--text-primary);
   white-space: nowrap;
-}
-
-.accountValue {
-  color: var(--text-primary);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
 }
 
 .accountMeta {

@@ -50,6 +50,24 @@ describe('pool card from fixtures', () => {
     expect(html).toContain('3.7%/h');
   });
 
+  test('shows the 5-hour window for the pool and each account', () => {
+    const html = renderCard(claude);
+    expect(html).toContain('5-hour');
+    expect(html).toContain(`${Math.round(claude.fiveHourRemainingPercent)}%`);
+    for (const account of claude.accounts) {
+      expect(html).toContain(`aria-label="${account.label} 5-hour"`);
+      expect(html).toContain(`aria-label="${account.label} Weekly"`);
+      expect(html).toContain(`aria-valuenow="${Math.round(account.fiveHourRemainingPercent ?? -1)}"`);
+    }
+  });
+
+  test('a pool with no 5-hour data shows a dash, not 0%', () => {
+    const html = renderCard(normalizePool({ provider: 'claude', accounts: [{ id: 'a', label: 'A' }] }));
+    expect(html).toContain('5-hour');
+    expect(html).not.toContain('NaN');
+    expect(html).toContain('—');
+  });
+
   test('shows the weight note and a dated pool-empty time', () => {
     const html = renderCard(codex);
     expect(html).toContain('421%');

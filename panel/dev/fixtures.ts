@@ -40,6 +40,15 @@ const CODEX_ACCOUNTS: AccountSeed[] = [
   { id: 'codex-heidi', label: 'Heidi', email: 'heidi@example.com', plan: 'pro max', weight: 2.5, remaining: 96, resetInHours: 167 },
 ];
 
+/** Each account's 5-hour window, shared by the router and quota fixtures so they agree. */
+const fiveHourWindows = (provider: 'claude' | 'codex', seeds: AccountSeed[], now: number) => {
+  const random = seeded(provider === 'claude' ? 77 : 99);
+  return seeds.map((_, index) => ({
+    remaining: Math.round(30 + random() * 70),
+    resetAt: iso(now + (1 + index) * HOUR),
+  }));
+};
+
 export interface QuotaQuery {
   from: number;
   to: number;
@@ -193,9 +202,10 @@ const buildPool = (shape: PoolShape, now: number, query: QuotaQuery) => {
     account.remaining < lowest.remaining ? account : lowest
   );
   const burnFactor = query.burn === '1h' ? 1.15 : query.burn === '6h' ? 0.9 : 1;
+  const fiveHour = fiveHourWindows(shape.provider, shape.accounts, now);
   return {
     provider: shape.provider,
-    accounts: shape.accounts.map((account) => ({
+    accounts: shape.accounts.map((account, index) => ({
       id: account.id,
       label: account.label,
       email: account.email,
@@ -204,9 +214,16 @@ const buildPool = (shape: PoolShape, now: number, query: QuotaQuery) => {
       remaining_percent: account.remaining,
       reset_at: iso(now + account.resetInHours * HOUR),
       status: account.status ?? 'ok',
+      five_hour_remaining_percent: fiveHour[index].remaining,
+      five_hour_reset_at: fiveHour[index].resetAt,
     })),
     remaining_percent: Math.round(forecast.remaining),
     capacity_percent: forecast.capacity,
+    five_hour_remaining_percent: shape.accounts.reduce(
+      (sum, account, index) => sum + fiveHour[index].remaining * account.weight,
+      0
+    ),
+    five_hour_capacity_percent: forecast.capacity,
     weight_note: shape.weightNote,
     pool_empty_at: forecast.poolEmptyAt ? iso(forecast.poolEmptyAt) : null,
     first_empty:
@@ -287,11 +304,11 @@ export const routerPools = (now: number, zero = false, mutable?: RouterMutable) 
     const state = mutable?.[provider];
     const routing = state?.active ?? seeds[0]?.id ?? '';
     const mode = state?.mode ?? 'auto';
-    const random = seeded(provider === 'claude' ? 77 : 99);
+    const fiveHour = fiveHourWindows(provider, seeds, now);
     const reserve = state?.reserve ?? (seeds.length ? [seeds[seeds.length - 1].id] : []);
     const disabled = state?.disabled ?? [];
     const accounts = seeds.map((seed, index) => {
-      const short = Math.round(30 + random() * 70);
+      const short = fiveHour[index].remaining;
       const off = disabled.includes(seed.id);
       return {
         id: seed.id,
@@ -304,7 +321,7 @@ export const routerPools = (now: number, zero = false, mutable?: RouterMutable) 
         detail: off ? 'Excluded from automatic routing' : '',
         active: seed.id === routing,
         pinned: mode === 'manual' && seed.id === routing,
-        short: { remaining_percent: short, window_minutes: 300, reset_at: iso(now + (1 + index) * HOUR) },
+        short: { remaining_percent: short, window_minutes: 300, reset_at: fiveHour[index].resetAt },
         long: { remaining_percent: seed.remaining, window_minutes: 10080, reset_at: iso(now + seed.resetInHours * HOUR) },
         observed_at: iso(now - 3 * 60_000),
         sessions: seed.id === routing ? 2 : index === 1 ? 1 : 0,

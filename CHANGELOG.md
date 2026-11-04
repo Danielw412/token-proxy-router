@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.0.3
+
+### Added
+
+- The Dashboard shows each pool's 5-hour quota next to its weekly quota, and a 5-hour and a
+  weekly bar for every account.
+- Quota Management shows the pool's 5-hour quota and a 5-hour bar on every account card.
+- `GET /quota/pools` returns `five_hour_remaining_percent` and `five_hour_reset_at` for each
+  account, and `five_hour_remaining_percent` and `five_hour_capacity_percent` for each pool,
+  whichever `window` is asked for.
+
+### Fixed
+
+- The Routing page counted every conversation the router remembers, including ones idle for up to
+  a day, so it showed more sessions than were running. It now shows conversations running now and
+  idle ones with a warm cache, and counts older ones separately.
+
 ## v1.0.2
 
 ### Added

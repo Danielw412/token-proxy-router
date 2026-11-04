@@ -182,6 +182,40 @@ func TestSessionWindowUsesTheShortWindow(t *testing.T) {
 	near(t, "session burn", pools[0].BurnPerHour, 20)
 }
 
+func TestWeeklyPoolsAlsoCarryTheFiveHourWindow(t *testing.T) {
+	s, _, r := newService(t)
+	engineA := r.Pool("claude").Engine
+	// A (weight 1) has 70% of its 5-hour window left, B (weight 4) has 20%.
+	engineA.ApplyPolledQuota("claude-a", reading(now, 30, 10, now.Add(week)), nil)
+	engineA.ApplyPolledQuota("claude-b", reading(now, 80, 10, now.Add(week)), nil)
+	pools, _, err := s.Pools(Query{From: now.Add(-day), To: now.Add(day), Burn: 3 * time.Hour, Window: WindowWeekly, Future: FutureIdle})
+	if err != nil {
+		t.Fatal(err)
+	}
+	claude := pools[0]
+	near(t, "weekly remaining", claude.RemainingPercent, 90+4*90)
+	near(t, "5-hour remaining", claude.FiveHourRemainingPercent, 70+4*20)
+	near(t, "5-hour capacity", claude.FiveHourCapacityPercent, 100+400)
+	for _, a := range claude.Accounts {
+		switch a.ID {
+		case "claude-a":
+			if a.FiveHourRemainingPercent == nil || *a.FiveHourRemainingPercent != 70 || a.FiveHourResetAt == nil {
+				t.Fatalf("account A 5-hour = %+v", a)
+			}
+			if a.RemainingPercent == nil || *a.RemainingPercent != 90 {
+				t.Fatalf("account A weekly = %+v", a)
+			}
+		case "claude-off":
+			if a.FiveHourRemainingPercent != nil {
+				t.Fatalf("an account with no reading has no 5-hour figure: %+v", a)
+			}
+		}
+	}
+	if pools[1].FiveHourCapacityPercent != 0 {
+		t.Fatalf("a pool with no data has no 5-hour capacity: %+v", pools[1])
+	}
+}
+
 func TestHistoryAndUnknownAccount(t *testing.T) {
 	s, _, _ := newService(t)
 	s.Observe("claude", "claude-a", reading(now.Add(-time.Hour), 5, 40, now.Add(week)))

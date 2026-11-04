@@ -36,6 +36,7 @@ import {
 } from '@/services/api/tpr';
 import { useNotificationStore, usePrivacyStore } from '@/stores';
 import { getErrorMessage } from '@/utils/helpers';
+import { sessionCounts } from './sessionCounts';
 import styles from './RouterPage.module.scss';
 
 const REFRESH_MS = 15_000;
@@ -95,7 +96,7 @@ export function RouterPage() {
           pool
             ? t('tpr.router.meta', {
                 accounts: pool.accounts.length,
-                sessions: pool.sessionCount,
+                running: sessionCounts(pool).running,
               })
             : undefined
         }
@@ -185,6 +186,9 @@ function PoolControls({
   const current = pool.accounts.find((account) => account.id === pool.routing);
   const showEmails = usePrivacyStore((state) => state.showEmails);
   const pinned = pool.mode === 'manual' ? pool.pinned || pool.routing : '';
+  const counts = sessionCounts(pool);
+  // Cold sessions are only remembered so they can return to their account; they are not running.
+  const liveSessions = pool.sessions.filter((session) => session.state !== 'cold');
 
   // A Select can only show plain text, so emails are masked here the way PrivateEmail blurs them.
   // Plan and quota keep the options apart while emails are hidden, and match the table below.
@@ -324,17 +328,19 @@ function PoolControls({
       <div className={styles.twoColumn}>
         <Panel
           title={t('tpr.router.sessions_title')}
-          description={t('tpr.router.sessions_description', {
-            sessions: pool.sessionCount,
-            warm: pool.warmSessions,
-            waiting: pool.waiting,
-          })}
+          description={[
+            t('tpr.router.sessions_description', { running: counts.running, idle: counts.idle }),
+            counts.cold > 0 ? t('tpr.router.sessions_cold', { count: counts.cold }) : '',
+            pool.waiting > 0 ? t('tpr.router.waiting_count', { count: pool.waiting }) : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
         >
-          {pool.sessions.length === 0 ? (
+          {liveSessions.length === 0 ? (
             <p className={styles.quiet}>{t('tpr.router.no_sessions')}</p>
           ) : (
             <ul className={styles.rows}>
-              {pool.sessions.slice(0, 8).map((session) => (
+              {liveSessions.slice(0, 8).map((session) => (
                 <li key={session.id} className={styles.row}>
                   <Badge tone={session.state === 'busy' ? 'good' : session.state === 'warm' ? 'info' : 'neutral'}>
                     {t(`tpr.router.session_${session.state}`, { defaultValue: session.state })}
@@ -431,8 +437,11 @@ function AccountRow({
             </Badge>
           ) : null}
           {account.detail ? <span>{account.detail}</span> : null}
-          {account.sessions > 0 ? (
-            <span>{t('tpr.router.account_sessions', { count: account.sessions })}</span>
+          {account.busySessions > 0 ? (
+            <span>{t('tpr.router.account_running', { count: account.busySessions })}</span>
+          ) : null}
+          {account.idleSessions > 0 ? (
+            <span>{t('tpr.router.account_idle', { count: account.idleSessions })}</span>
           ) : null}
         </div>
       </div>

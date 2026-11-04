@@ -49,6 +49,8 @@ export function PoolCard({
   const burnHours = Number.parseInt(burn, 10) || 3;
   const futureMultiplier = future === 'idle' ? 0 : future === 'double' ? 2 : 1;
   const providerTitle = pool.provider === 'claude' ? 'Claude' : pool.provider === 'codex' ? 'Codex' : pool.provider;
+  const fiveHourLabel = t('tpr.quota.window_five_hour');
+  const weeklyLabel = t('tpr.quota.window_weekly');
 
   return (
     <article className={styles.card}>
@@ -63,12 +65,29 @@ export function PoolCard({
       </header>
 
       <div className={styles.summary}>
-        <div className={styles.figure}>
-          <span className={styles.big}>{formatPercentValue(pool.remainingPercent)}</span>
-          <span className={styles.of}>
-            {t('tpr.quota.of_capacity', { capacity: formatPercentValue(pool.capacityPercent) })}
-          </span>
-          {pool.weightNote ? <span className={styles.weight}>{pool.weightNote}</span> : null}
+        <div className={styles.figures}>
+          <div className={styles.figure}>
+            <span className={styles.big}>{formatPercentValue(pool.remainingPercent)}</span>
+            <span className={styles.of}>
+              {t('tpr.quota.of_capacity', { capacity: formatPercentValue(pool.capacityPercent) })}
+            </span>
+            {pool.weightNote ? <span className={styles.weight}>{pool.weightNote}</span> : null}
+          </div>
+          <div className={styles.secondFigure}>
+            <span className={styles.secondLabel}>{fiveHourLabel}</span>
+            {pool.fiveHourCapacityPercent > 0 ? (
+              <>
+                <span className={styles.secondValue}>{formatPercentValue(pool.fiveHourRemainingPercent)}</span>
+                <span className={styles.of}>
+                  {t('tpr.quota.of_capacity', {
+                    capacity: formatPercentValue(pool.fiveHourCapacityPercent),
+                  })}
+                </span>
+              </>
+            ) : (
+              <span className={styles.secondValue}>—</span>
+            )}
+          </div>
         </div>
         <dl className={styles.stats}>
           <div>
@@ -148,23 +167,27 @@ export function PoolCard({
 
       {pool.accounts.length > 0 && (
         <ul className={styles.accounts} aria-label={t('tpr.quota.pool_accounts', { pool: providerTitle })}>
-          {pool.accounts.map((account) => (
+          {pool.accounts.map((account) => {
+            const name = account.label || account.id;
+            const windowRow = (label: string, value: number | null, resetAt: string | null) => (
+              <div
+                className={styles.windowRow}
+                title={resetAt ? t('tpr.quota.resets', { when: formatWhen(Date.parse(resetAt), locale) }) : undefined}
+              >
+                <span className={styles.windowLabel}>{label}</span>
+                <QuotaBar value={value} color={color} label={`${name} ${label}`} />
+                <span className={styles.windowValue}>{value === null ? '—' : formatPercentValue(value)}</span>
+              </div>
+            );
+            return (
             <li key={account.id} className={styles.account}>
               <div className={styles.accountTop}>
                 <span className={styles.accountName}>
-                  <PrivateEmail value={account.email} fallback={account.label || account.id} />
-                </span>
-                <span className={styles.accountValue}>
-                  {account.remainingPercent === null
-                    ? '—'
-                    : formatPercentValue(account.remainingPercent)}
+                  <PrivateEmail value={account.email} fallback={name} />
                 </span>
               </div>
-              <QuotaBar
-                value={account.remainingPercent}
-                color={color}
-                label={account.label || account.id}
-              />
+              {windowRow(weeklyLabel, account.remainingPercent, account.resetAt)}
+              {windowRow(fiveHourLabel, account.fiveHourRemainingPercent, account.fiveHourResetAt)}
               <div className={styles.accountMeta}>
                 <span>
                   {account.plan ? <span className={styles.plan}>{account.plan}</span> : null}
@@ -179,7 +202,8 @@ export function PoolCard({
                 ) : null}
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </article>

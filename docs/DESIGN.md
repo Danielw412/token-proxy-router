@@ -165,6 +165,9 @@ it:
 
 - `accounts[]`: `{id, label, email, plan, role, order, state, detail, active, pinned, disabled, short, long, observed_at, source, stale, blocked_until, poll_error, sessions, warm_sessions, busy_sessions, idle_sessions, last_used, window, window_reset_at, plans, auto_start_at}`. `state` is `ok|low|exhausted|unavailable|unknown|off`. `short` and `long` are `{remaining_percent, estimated, window_minutes, reset_at}`.
 - `sessions[]`: `{id, account, label, last, bound_at, last_seen, requests, state}`, newest first, at most 200. `state` is `busy|warm|cold`.
+- `session_count` and an account's `sessions` count every remembered session, cold ones
+  included: a session is kept for 24 hours after its last request. What is running now is
+  `busy_sessions` (a request in the last 5 minutes); `idle_sessions` are idle with a warm cache.
 - `windows[]`: `{account, label, state, reset_at, auto_start_at, plans}`. `state` is `running|idle|unknown`.
 - `pause`: `null`, or `{since, until, auto_resume_minutes, next_auto_resume}`.
 - `slowdown`: `{seconds}`.
@@ -191,10 +194,13 @@ and reported in `warnings`, and an unknown key answers 400.
     "provider": "claude",
     "accounts": [{
       "id": "...", "label": "...", "email": "alice@example.com", "plan": "max",
-      "weight": 1.0, "remaining_percent": 91, "reset_at": "...", "status": "ok"
+      "weight": 1.0, "remaining_percent": 91, "reset_at": "...", "status": "ok",
+      "five_hour_remaining_percent": 72, "five_hour_reset_at": "..."
     }],
     "remaining_percent": 555,
     "capacity_percent": 600,
+    "five_hour_remaining_percent": 412,
+    "five_hour_capacity_percent": 600,
     "weight_note": "Pro Max = 2.5x",
     "pool_empty_at": null,
     "first_empty": {"account": "id", "at": "..."},
@@ -223,6 +229,10 @@ and `capacity = sum(100 * weight)`, so the numbers match the reference design
   one first, reserves last. A reset gives back quota at its known time and recurs each
   period. Claude's weekly window keeps a fixed schedule; a Codex window and a 5-hour
   window restart at the first use after a reset.
+- `five_hour_*` always describe the 5-hour window, whichever `window` was asked for, so one
+  request can show both windows. An account's are `null` when its 5-hour window is unknown.
+  The pool's are weighted and counted like the totals above, over accounts with a known
+  5-hour window; `five_hour_capacity_percent` is `0` when there are none.
 - `projected` holds both sides of a reset at the same `at`, so it draws as a step.
 - `first_empty`, `next_reset` and `pool_empty_at` are `null` when none falls before `to`.
 - `resets[].projected` is `false` for a reset found in history.

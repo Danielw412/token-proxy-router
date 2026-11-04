@@ -216,6 +216,10 @@ type AccountView struct {
 	RemainingPercent *float64   `json:"remaining_percent"`
 	ResetAt          *time.Time `json:"reset_at"`
 	Status           string     `json:"status"`
+	// FiveHour is the account's 5-hour window whichever window the request
+	// chose, so a page can show both windows from one response.
+	FiveHourRemainingPercent *float64   `json:"five_hour_remaining_percent"`
+	FiveHourResetAt          *time.Time `json:"five_hour_reset_at"`
 }
 
 // PoolView is one pool's response.
@@ -223,6 +227,10 @@ type PoolView struct {
 	Provider   string        `json:"provider"`
 	Accounts   []AccountView `json:"accounts"`
 	WeightNote string        `json:"weight_note"`
+	// FiveHour totals are weighted and counted like remaining_percent and
+	// capacity_percent, over the accounts whose 5-hour window is known.
+	FiveHourRemainingPercent float64 `json:"five_hour_remaining_percent"`
+	FiveHourCapacityPercent  float64 `json:"five_hour_capacity_percent"`
 	Result
 }
 
@@ -284,6 +292,7 @@ func (s *Service) poolView(provider string, pool *router.Pool, now time.Time, q 
 	}
 	views := make([]AccountView, 0, len(accounts))
 	inputs := make([]AccountInput, 0, len(accounts))
+	fiveHour := make([]AccountInput, 0, len(accounts))
 	var firstSample *time.Time
 	for _, a := range accounts {
 		if len(q.Accounts) > 0 && !q.Accounts[a.ID] {
@@ -316,6 +325,15 @@ func (s *Service) poolView(provider string, pool *router.Pool, now time.Time, q 
 				view.ResetAt = &at
 			}
 		}
+		if a.Short != nil {
+			remaining := a.Short.RemainingPercent
+			view.FiveHourRemainingPercent = &remaining
+			if !a.Short.ResetAt.IsZero() {
+				at := a.Short.ResetAt
+				view.FiveHourResetAt = &at
+			}
+			fiveHour = append(fiveHour, AccountInput{Weight: input.Weight, Counted: input.Counted, Known: true, Remaining: remaining})
+		}
 		samples, err := s.store.Samples(provider, a.ID, seriesFrom, now)
 		if err != nil {
 			return PoolView{}, fmt.Errorf("read history: %w", err)
@@ -331,7 +349,12 @@ func (s *Service) poolView(provider string, pool *router.Pool, now time.Time, q 
 	result := Forecast(Params{Now: now, From: q.From, To: q.To, Burn: q.Burn, Future: q.Future}, inputs)
 	result.Coverage.FirstSampleAt = firstSample
 	sort.SliceStable(views, func(i, j int) bool { return views[i].Label < views[j].Label })
-	return PoolView{Provider: provider, Accounts: views, WeightNote: note, Result: result}, nil
+	fiveHourRemaining, fiveHourCapacity := PoolTotals(fiveHour)
+	return PoolView{
+		Provider: provider, Accounts: views, WeightNote: note,
+		FiveHourRemainingPercent: fiveHourRemaining, FiveHourCapacityPercent: fiveHourCapacity,
+		Result: result,
+	}, nil
 }
 
 func seriesFor(samples []store.Sample, window string) []SeriesPoint {

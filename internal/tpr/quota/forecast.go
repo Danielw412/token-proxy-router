@@ -120,21 +120,8 @@ type Result struct {
 // is how the router concentrates traffic: one current account at a time.
 func Forecast(p Params, accounts []AccountInput) Result {
 	r := Result{Recorded: []Point{}, Projected: []Point{}, Resets: []Reset{}, EmptyMarks: []EmptyMark{}}
-	counted := make([]AccountInput, 0, len(accounts))
-	for _, a := range accounts {
-		if !a.Counted || !a.Known {
-			continue
-		}
-		if a.Weight <= 0 {
-			a.Weight = 1
-		}
-		a.Remaining = clampPercent(a.Remaining)
-		counted = append(counted, a)
-		r.RemainingPercent += a.Remaining * a.Weight
-		r.CapacityPercent += 100 * a.Weight
-	}
-	r.RemainingPercent = round2(r.RemainingPercent)
-	r.CapacityPercent = round2(r.CapacityPercent)
+	counted := countedAccounts(accounts)
+	r.RemainingPercent, r.CapacityPercent = PoolTotals(counted)
 
 	r.BurnPerHour = round2(BurnPerHour(p.Now, p.Burn, counted))
 	r.Recorded, r.Coverage = recordedCurve(p, counted)
@@ -527,6 +514,33 @@ func nextResetEvent(sims []*simAccount, now, to time.Time) (time.Time, []*simAcc
 		}
 	}
 	return soonest, due
+}
+
+// countedAccounts keeps the accounts that count toward a pool's totals, with
+// their weight defaulted and their remaining quota clamped.
+func countedAccounts(accounts []AccountInput) []AccountInput {
+	counted := make([]AccountInput, 0, len(accounts))
+	for _, a := range accounts {
+		if !a.Counted || !a.Known {
+			continue
+		}
+		if a.Weight <= 0 {
+			a.Weight = 1
+		}
+		a.Remaining = clampPercent(a.Remaining)
+		counted = append(counted, a)
+	}
+	return counted
+}
+
+// PoolTotals is a pool's weighted remaining quota and capacity: each counted
+// account adds remaining*weight and 100*weight.
+func PoolTotals(accounts []AccountInput) (remaining, capacity float64) {
+	for _, a := range countedAccounts(accounts) {
+		remaining += a.Remaining * a.Weight
+		capacity += 100 * a.Weight
+	}
+	return round2(remaining), round2(capacity)
 }
 
 func clampPercent(v float64) float64 {
