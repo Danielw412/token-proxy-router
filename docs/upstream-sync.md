@@ -57,6 +57,8 @@ After a merge, run `make check`, and add any new upstream file you touched to th
 | `internal/api/handlers/management/handler.go` | In `Middleware`, `h.tprIdentityAllowed` skips the key check only when every identity check passes. |
 | `internal/api/handlers/management/tpr_identity.go` | New file with that one method. |
 | `internal/api/handlers/management/config_basic.go` | `latest-version` looks at this repository's releases. |
+| `internal/api/response_compression.go` | In `decide`, `text/event-stream` responses go out uncompressed while `tprCompressEventStreams` is false. Other responses are still compressed. |
+| `internal/api/tpr_stream_compression.go`, `tpr_stream_compression_test.go` | New files. The switch, with the reason, and a `TestMain` that turns it on so upstream's compression tests keep covering compressed streams. If upstream adds its own `TestMain` to `internal/api`, the build fails: move the one line into theirs. |
 | `internal/tui/i18n.go` | The TUI status bar says "Token Proxy Router". |
 | `go.mod` | `github.com/pelletier/go-toml/v2` is now a direct dependency, for merging Codex's config. |
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.0.4
+
+### Fixed
+
+- Streamed responses (`text/event-stream`) are sent uncompressed, as the Anthropic and OpenAI
+  APIs send them. Claude Code on Windows, connecting through Tailscale Serve, sometimes stopped
+  partway through a reply that was writing a large tool call and waited until stopped, while the
+  hub logged the request as complete. Other responses are still compressed.
+
 ## v1.0.3
 
 ### Added

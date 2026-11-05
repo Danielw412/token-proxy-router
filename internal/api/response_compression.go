@@ -333,6 +333,11 @@ func (w *responseCompressionWriter) decide(force bool, size int) {
 		return
 	}
 	streaming := mediaType == "text/event-stream"
+	// TPR: event streams go out uncompressed. See tpr_stream_compression.go.
+	if streaming && !tprCompressEventStreams {
+		w.decided = true
+		return
+	}
 	if !streaming {
 		if contentLength, errParseInt := strconv.ParseInt(w.Header().Get("Content-Length"), 10, 64); errParseInt == nil && contentLength >= 0 && contentLength < int64(w.minBytes) {
 			w.decided = true
