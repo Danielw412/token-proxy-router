@@ -132,6 +132,9 @@ These are inherited from upstream. Follow them in upstream code and in `internal
 - Avoid wall-clock `time.Sleep` in TTL, expiry or ordering tests. Use a controllable clock or
   deterministic synchronization, because Windows timers and CI load make sleeps flaky.
 - Do not make standalone changes to `internal/translator/`.
+- In upstream code, use `github.com/MoeForge/moego/ojson` and `github.com/MoeForge/moego/base64`,
+  not `gjson`, `sjson` or `encoding/base64`. Make JSON edits on one `*ojson.Doc` and serialize
+  it once at the end.
 - `internal/runtime/executor/` holds executors and their tests only. Helpers go in
   `internal/runtime/executor/helps/`.
 - Payload configuration must be the final semantic barrier before sending a request in every

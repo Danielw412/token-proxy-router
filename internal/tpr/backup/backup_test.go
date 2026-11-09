@@ -204,6 +204,46 @@ func TestLiveBackupIncludesPlainStateButNotOpenDatabases(t *testing.T) {
 	}
 }
 
+func TestLiveBackupLeavesOutTheOpenKeyValueStore(t *testing.T) {
+	setupHome(t)
+	kvPath := filepath.Join(home.AuthDir(), "kv.db")
+	mustWrite(t, kvPath, "store in use")
+	archive := makeArchive(t, Options{LiveSnapshots: true})
+	mustWrite(t, kvPath, "this machine's store")
+	if _, _, err := Stage(context.Background(), bytes.NewReader(archive), passphrase, Options{ConfigPath: home.ConfigPath()}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(stagingDir(), "auth", "kv.db")); !os.IsNotExist(err) {
+		t.Fatal("an open database in the auth folder should not be in a live backup")
+	}
+	if _, err := ApplyPending(home.ConfigPath()); err != nil {
+		t.Fatal(err)
+	}
+	if mustRead(t, kvPath) != "this machine's store" {
+		t.Fatal("a restore without the store should keep this machine's copy")
+	}
+	if mustRead(t, filepath.Join(home.AuthDir(), "claude-alice.json")) == "" {
+		t.Fatal("auth files should still be restored")
+	}
+}
+
+func TestOfflineBackupRestoresTheKeyValueStore(t *testing.T) {
+	setupHome(t)
+	kvPath := filepath.Join(home.AuthDir(), "kv.db")
+	mustWrite(t, kvPath, "store at backup time")
+	archive := makeArchive(t, Options{})
+	mustWrite(t, kvPath, "changed later")
+	if _, _, err := Stage(context.Background(), bytes.NewReader(archive), passphrase, Options{ConfigPath: home.ConfigPath()}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ApplyPending(home.ConfigPath()); err != nil {
+		t.Fatal(err)
+	}
+	if mustRead(t, kvPath) != "store at backup time" {
+		t.Fatal("a backup taken with the server stopped should restore the store")
+	}
+}
+
 func TestFailingSnapshotFailsTheBackup(t *testing.T) {
 	setupHome(t)
 	tpr.AddSnapshot("data/broken.db", func(io.Writer) error { return errors.New("db closed") })

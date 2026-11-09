@@ -330,6 +330,10 @@ the login page whether identity sign-in applies to this request:
   data folder, whatever the archive's config says, and its `auth-dir` is rewritten to
   match. `auth/` and `data/` end up matching the backup exactly, apart from files
   describing the running process.
+- A backup from the running server leaves out databases it holds open: `data/tpr.db`
+  comes from its consistent snapshot instead, and upstream's key-value store,
+  `auth/kv.db`, is not copied. A restore keeps this machine's `auth/kv.db` unless the
+  archive has one, which only a backup taken with the server stopped does.
 
 ### Connect
 

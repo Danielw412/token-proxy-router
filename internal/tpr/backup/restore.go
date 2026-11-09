@@ -111,7 +111,9 @@ func ApplyPending(configPath string) (bool, error) {
 	}
 	// Restored files always go into this data folder. An archive's config must never
 	// choose where files get written or deleted.
-	if err := replaceTree(filepath.Join(staging, "auth"), home.AuthDir(), nil); err != nil {
+	// A live backup leaves out upstream's key-value database, so keep this machine's
+	// copy unless the archive has one.
+	if err := replaceTree(filepath.Join(staging, "auth"), home.AuthDir(), isAuthDatabase); err != nil {
 		return false, fmt.Errorf("restore auth files: %w", err)
 	}
 	if err := replaceTree(filepath.Join(staging, "data"), home.DataDir(), isEphemeralData); err != nil {
@@ -161,6 +163,11 @@ func rewriteAuthDir(raw []byte) ([]byte, error) {
 // running process, and so stays out of a restore in both directions.
 func isEphemeralData(relative string) bool {
 	return ephemeralData[strings.ToLower(path.Join("data", filepath.ToSlash(relative)))]
+}
+
+// isAuthDatabase reports whether a path inside the auth folder is a database.
+func isAuthDatabase(relative string) bool {
+	return isDatabase(filepath.ToSlash(relative))
 }
 
 // replaceTree makes target match source, so a file that was not in the backup does

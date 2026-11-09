@@ -28,6 +28,7 @@ git merge upstream-<tag>
 Resolve in favour of what TPR does, then take what upstream added around it:
 
 - Keep TPR's login page, theme, "Claude and Codex first" provider order, and the wizard, router, quota and connect pages.
+- Leave out sponsor and promotional providers. TPR removed them, so a new one shows up as conflicts in `panel/src/features/providers/` and the locale files: keep ours, and delete its new files and strings.
 - Take upstream's fixes to the shared API client and to pages TPR has not changed.
 - When upstream reworks a page TPR changed heavily, keep TPR's version and port the fix by hand.
 
@@ -84,7 +85,7 @@ Every hook is marked `// TPR:`, and `internal/tpr/router/README.md` explains how
 | `sdk/cliproxy/auth/conductor.go` | One `schedulerFront` field on `Manager`. |
 | `sdk/cliproxy/auth/conductor_selection.go` | One line in `SetPluginScheduler` chains through the front. |
 | `AGENTS.md` | Lists the router's quota polls and alert deliveries among the allowed timeouts. |
-| `go.mod`, `go.sum` | Adds `go.etcd.io/bbolt`. |
+| `go.mod`, `go.sum` | `go.etcd.io/bbolt` is a direct dependency. Upstream lists it as indirect since v8.0.61, for its key-value store, so a merge can conflict on that line: keep it direct, at the newer version. |
 
 After a merge, check that these still hold:
 
@@ -97,3 +98,8 @@ After a merge, check that these still hold:
   rate limits from them.
 - The Codex and Claude usage endpoints in `internal/tpr/router/host.go` still match the panel's,
   in `panel/src/utils/quota/constants.ts`.
+- Upstream's key-value store still lives in the auth folder as a `.db` file, or the backup rule in
+  `internal/tpr/backup` that leaves open databases out of a live backup needs to follow it.
+- Upstream's `session-affinity-rebind-on: never` keeps a session on an unavailable account only
+  when no plugin scheduler is installed. The router always is one, so that part never applies.
+  Pins on the Routing page do that job in TPR.

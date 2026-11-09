@@ -38,8 +38,8 @@ const (
 
 // Version metadata stamped into release builds by the Makefile and release workflow.
 var (
-	UpstreamVersion = "v8.0.52"
-	PanelVersion    = "v1.27.2"
+	UpstreamVersion = "v8.0.61"
+	PanelVersion    = "v1.27.3"
 )
 
 // ErrRateLimited means GitHub refused the check for now.

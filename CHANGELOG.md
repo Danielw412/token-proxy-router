@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Based on CLIProxyAPI v8.0.61 (was v8.0.52) and Management Center v1.27.3 (was v1.27.2).
+  Upstream's changes include more robust Codex token refresh, a fix for disabled credentials
+  that kept trying to refresh, prompt-cache fixes for Claude and Codex, and Claude errors that
+  show when a cooldown ends.
+- Includes upstream's fix for a Claude stream that could hang after a few idle minutes, a
+  regression in v8.0.60 that v8.0.61 still has.
+- The panel's quota pages name limits the same way for every provider, and plugins can offer
+  more than one sign-in. Upstream's new AI Code Mirror sponsor provider is left out.
+
+### Fixed
+
+- A backup taken while the hub runs no longer copies upstream's new key-value database,
+  `auth/kv.db`, which is open at the time. A restore keeps this machine's copy.
+
 ## v1.0.5
 
 ### Added
