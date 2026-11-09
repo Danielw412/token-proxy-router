@@ -145,6 +145,9 @@ type Account struct {
 	// tried; autoFails counts failures in a row (both in memory only).
 	autoRetryAt time.Time
 	autoFails   int
+	// staggerSent: a staggered start was handed out for this account at
+	// staggerSent and its result is not in yet (in memory only).
+	staggerSent time.Time
 }
 
 // Binding pins a session family (a main agent plus its subagents/forks) to an account.
@@ -261,6 +264,14 @@ func (e *Engine) Configure(settings Settings, warnings []string) {
 			e.addHistory("window", "", "", "Auto-start off: 5-hour windows start with the next request or a start you schedule")
 		}
 		old.AutoStartWindows = settings.AutoStartWindows
+	}
+	if old.StaggerWindows != settings.StaggerWindows {
+		if settings.StaggerWindows {
+			e.addHistory("window", "", "", "Stagger on: auto-start spaces 5-hour window starts evenly, 5 hours divided by the number of accounts")
+		} else {
+			e.addHistory("window", "", "", "Stagger off: auto-start starts each window a minute after the last one resets")
+		}
+		old.StaggerWindows = settings.StaggerWindows
 	}
 	if !settingsEqual(old, settings) {
 		e.addHistory("settings", "", "", "Routing preferences updated")

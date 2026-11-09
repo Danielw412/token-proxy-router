@@ -60,6 +60,11 @@ type StarterView struct {
 	Log    []StartResult `json:"log"`
 	// LastCost is the most recent start that actually sent a request.
 	LastCost *StartResult `json:"last_cost,omitempty"`
+	// StaggerAccounts and StaggerMinutes describe auto-start's stagger: how
+	// many accounts it spreads windows across and the minutes between starts.
+	// Both are left out while it does not stagger.
+	StaggerAccounts int `json:"stagger_accounts,omitempty"`
+	StaggerMinutes  int `json:"stagger_minutes,omitempty"`
 }
 
 // View is the full UI/API state.
@@ -170,6 +175,7 @@ func (e *Engine) View(historyLimit int) View {
 	}
 
 	stale := time.Duration(e.settings.StaleAfterMinutes) * time.Minute
+	autos, _ := e.autoStarts(now)
 	for _, id := range e.knownIDs() {
 		a := e.st.Accounts[id]
 		av := AccountView{
@@ -217,12 +223,10 @@ func (e *Engine) View(historyLimit int) View {
 			av.State = "ok"
 		}
 		av.Window, av.WindowResetAt = e.windowState(id, now)
-		if e.settings.AutoStartWindows {
-			if at, ok := e.autoStartAt(id, now); ok {
-				av.AutoStartAt = at
-				if at.Before(now) {
-					av.AutoStartAt = now
-				}
+		if at, ok := autos[id]; ok {
+			av.AutoStartAt = at
+			if at.Before(now) {
+				av.AutoStartAt = now
 			}
 		}
 		av.Plans = []StartPlan{}
@@ -239,6 +243,10 @@ func (e *Engine) View(historyLimit int) View {
 		Effort: e.settings.WindowStartEffort,
 		Plans:  append([]StartPlan{}, e.st.Starts...),
 		Log:    []StartResult{},
+	}
+	if n, every := e.staggerInfo(now); n > 0 {
+		v.Starter.StaggerAccounts = n
+		v.Starter.StaggerMinutes = int(every.Round(time.Minute).Minutes())
 	}
 	sort.Slice(v.Starter.Plans, func(i, j int) bool { return v.Starter.Plans[i].At.Before(v.Starter.Plans[j].At) })
 	for i := len(e.st.StartLog) - 1; i >= 0; i-- {

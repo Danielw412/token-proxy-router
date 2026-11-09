@@ -121,6 +121,20 @@ Auto-start skips an account that is Off, out of weekly quota, blocked by a usage
 unavailable, and one with a start you scheduled before its window would end: your times
 decide. A failed automatic start is retried after 15 minutes, then 30, 60 and at most 120.
 
+**Stagger** (`stagger_windows`, off by default, needs auto-start) spaces the starts evenly
+instead, so the pool's windows reset in turn rather than together: one start every 5 hours
+divided by the number of accounts. With 3 accounts a window starts every 100 minutes.
+
+- The next start is one interval after the pool's most recent window start, whoever started
+  it. A window a request starts early moves the starts after it.
+- Accounts take turns in the order their windows ended, and never sooner than plain auto-start
+  would start them, a minute after their last window reset. So each cycle drifts by that minute.
+- Windows that started together spread out over one cycle.
+- The count is the accounts auto-start looks after: not Off, unavailable or out of weekly
+  quota. One waiting out a 5-hour limit still counts. It needs at least two.
+- Stagger only times the starts it sends. A request still goes to whichever account routing
+  picks, and if that account's window is idle, the request starts it.
+
 ## Where the numbers come from
 
 - **Live.** Every response carries rate-limit data, read as it passes.
@@ -181,6 +195,7 @@ take routing offline.
 | `window_start_model` | per pool | | Model used to start 5-hour windows. |
 | `window_start_effort` | per pool | | Reasoning effort for window starts (`none` to `xhigh`). |
 | `auto_start_windows` | `false` | | Start each account's next window a minute after the last one resets. |
+| `stagger_windows` | `false` | | With auto-start on, space window starts evenly: one every 5 hours divided by the number of accounts. |
 
 ## What the upstream server should be set to
 

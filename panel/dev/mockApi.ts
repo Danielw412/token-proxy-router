@@ -253,6 +253,7 @@ const handleTpr = async (
     if (method === 'PATCH') {
       const body = parseJson(await readBody(req));
       if (typeof body.auto_start_windows === 'boolean') pool().autoStart = body.auto_start_windows;
+      if (typeof body.stagger_windows === 'boolean') pool().stagger = body.stagger_windows;
       if (typeof body.switch_threshold_percent === 'number') pool().threshold = body.switch_threshold_percent;
       if (typeof body.strategy === 'string') pool().strategy = body.strategy;
       if (typeof body.manual_fallback === 'string') pool().fallback = body.manual_fallback;
