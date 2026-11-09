@@ -119,11 +119,15 @@ func writeEntries(ctx context.Context, archive *tar.Writer, opts Options) error 
 	} else if !errors.Is(errRead, os.ErrNotExist) {
 		return fmt.Errorf("read config: %w", errRead)
 	}
-	if err := writeTree(ctx, archive, authDir, "auth", nil); err != nil {
-		return err
-	}
 	if !opts.LiveSnapshots {
+		if err := writeTree(ctx, archive, authDir, "auth", nil); err != nil {
+			return err
+		}
 		return writeTree(ctx, archive, home.DataDir(), "data", nil)
+	}
+	// Upstream keeps a key-value database in the auth folder, open while it runs.
+	if err := writeTree(ctx, archive, authDir, "auth", isDatabase); err != nil {
+		return err
 	}
 	snapshots := tpr.Snapshots()
 	names := make([]string, 0, len(snapshots))
@@ -140,8 +144,14 @@ func writeEntries(ctx context.Context, archive *tar.Writer, opts Options) error 
 	// is in use is what the snapshot exists to avoid, so those stay out.
 	return writeTree(ctx, archive, home.DataDir(), "data", func(name string) bool {
 		_, covered := snapshots[name]
-		return covered || strings.HasSuffix(name, ".db") || strings.HasSuffix(name, ".db-lock")
+		return covered || isDatabase(name)
 	})
+}
+
+// isDatabase reports whether a file is a database, which a running server keeps open:
+// TPR's tpr.db in data/, and upstream's key-value store, kv.db in the auth folder.
+func isDatabase(name string) bool {
+	return strings.HasSuffix(name, ".db") || strings.HasSuffix(name, ".db-lock")
 }
 
 func writeSnapshot(ctx context.Context, archive *tar.Writer, name string, snapshot tpr.SnapshotFunc) error {
