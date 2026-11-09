@@ -160,7 +160,8 @@ routes answer with the pool's state.
 `GET /router/state` also carries `enabled`, `now`, `pinned`, `active_manual`,
 `active_since`, `routing` and `routing_note` (the account a new session uses right
 now, and why), `session_count`, `warm_sessions`, `warnings`, `starter`
-(`{model, effort, plans, log, last_cost}`), `picks`, `pick_stats` and `last_poll`. In
+(`{model, effort, plans, log, last_cost, stagger_accounts, stagger_minutes}`; the last two
+are left out unless auto-start is staggering), `picks`, `pick_stats` and `last_poll`. In
 it:
 
 - `accounts[]`: `{id, label, email, plan, role, order, state, detail, active, pinned, disabled, short, long, observed_at, source, stale, blocked_until, poll_error, sessions, warm_sessions, busy_sessions, idle_sessions, last_used, window, window_reset_at, plans, auto_start_at}`. `state` is `ok|low|exhausted|unavailable|unknown|off`. `short` and `long` are `{remaining_percent, estimated, window_minutes, reset_at}`.

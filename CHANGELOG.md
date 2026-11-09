@@ -18,6 +18,16 @@
 - A backup taken while the hub runs no longer copies upstream's new key-value database,
   `auth/kv.db`, which is open at the time. A restore keeps this machine's copy.
 
+## v1.0.5
+
+### Added
+
+- **Stagger** for auto-start (`stagger_windows`, off by default) spaces 5-hour window starts
+  evenly across a pool's accounts: one every 5 hours divided by the number of accounts, so
+  with 3 accounts a window starts every 100 minutes and one resets every 100 minutes. Turn it
+  on next to *Auto-start* on the Routing page. `GET /router/state` reports it as
+  `starter.stagger_accounts` and `starter.stagger_minutes`.
+
 ## v1.0.4
 
 ### Fixed

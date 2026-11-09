@@ -381,6 +381,7 @@ export const routerPools = (now: number, zero = false, mutable?: RouterMutable) 
         window_start_model: provider === 'claude' ? 'claude-haiku-5-5' : 'gpt-5.1-codex-mini',
         window_start_effort: 'low',
         auto_start_windows: state?.autoStart ?? false,
+        stagger_windows: state?.stagger ?? false,
       },
       history: seeds.length
         ? [
@@ -407,7 +408,15 @@ export const routerPools = (now: number, zero = false, mutable?: RouterMutable) 
           plans,
         };
       }),
-      starter: { model: '', effort: '', plans: [], log: [] },
+      starter: {
+        model: '',
+        effort: '',
+        plans: [],
+        log: [],
+        ...(state?.autoStart && state?.stagger && seeds.length > 1
+          ? { stagger_accounts: seeds.length, stagger_minutes: Math.round(300 / seeds.length) }
+          : {}),
+      },
       last_error: '',
     };
   };
@@ -427,6 +436,7 @@ export type RouterMutable = Record<
     paused?: boolean;
     slowdown?: number;
     autoStart?: boolean;
+    stagger?: boolean;
     threshold?: number;
     strategy?: string;
     fallback?: string;

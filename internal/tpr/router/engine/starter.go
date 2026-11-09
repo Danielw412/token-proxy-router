@@ -302,15 +302,20 @@ func (e *Engine) DueStarts() []StartPlan {
 		e.dirty = true
 	}
 	e.st.Starts = kept
-	if e.settings.AutoStartWindows {
+	if autos, staggered := e.autoStarts(now); autos != nil {
 		planned := map[string]bool{}
 		for _, p := range due {
 			planned[p.Account] = true
 		}
 		for _, id := range e.startOrder() {
-			if at, ok := e.autoStartAt(id, now); ok && !at.After(now) && !planned[id] {
+			if at, ok := autos[id]; ok && !at.After(now) && !planned[id] {
 				// Hold off the next try now, so nothing can send twice.
-				e.st.Accounts[id].autoRetryAt = now.Add(autoStartRetry)
+				a := e.st.Accounts[id]
+				a.autoRetryAt = now.Add(autoStartRetry)
+				if staggered {
+					// The next slot counts from this start while it is in flight.
+					a.staggerSent = now
+				}
 				due = append(due, StartPlan{ID: e.planID(len(due)), Account: id, At: now, Source: SourceAuto})
 			}
 		}
@@ -329,15 +334,152 @@ func (e *Engine) NextStartAt() time.Time {
 			next = p.At
 		}
 	}
-	if e.settings.AutoStartWindows {
-		now := e.now()
-		for _, id := range e.knownIDs() {
-			if at, ok := e.autoStartAt(id, now); ok && (next.IsZero() || at.Before(next)) {
-				next = at
-			}
+	autos, _ := e.autoStarts(e.now())
+	for _, at := range autos {
+		if next.IsZero() || at.Before(next) {
+			next = at
 		}
 	}
 	return next
+}
+
+// autoStarts returns when auto-start will next start each account it looks
+// after (nil while auto-start is off), and whether the starts are staggered.
+func (e *Engine) autoStarts(now time.Time) (map[string]time.Time, bool) {
+	if !e.settings.AutoStartWindows {
+		return nil, false
+	}
+	order := e.startOrder()
+	autos := make(map[string]time.Time, len(order))
+	for _, id := range order {
+		if at, ok := e.autoStartAt(id, now); ok {
+			autos[id] = at
+		}
+	}
+	if !e.settings.StaggerWindows || len(autos) == 0 {
+		return autos, false
+	}
+	// With one account, a start a minute after each reset is already even.
+	members := e.staggerMembers(now)
+	if len(members) < 2 {
+		return autos, false
+	}
+	return e.staggerStarts(order, autos, members, now), true
+}
+
+// staggerMembers lists the accounts the stagger spreads windows across: those
+// auto-start looks after, including one waiting out a 5-hour limit (its turn
+// comes back when the window resets), but not one out of its weekly quota,
+// Off, unavailable or with a window it can't read.
+func (e *Engine) staggerMembers(now time.Time) []string {
+	var ids []string
+	for _, id := range e.startOrder() {
+		a := e.st.Accounts[id]
+		if a == nil || a.authIndex == "" || e.settings.Role(id) == RoleOff || !e.hostOK(id, now) {
+			continue
+		}
+		if a.BlockedUntil.After(now.Add(shortWindow)) || weeklyOut(a, now) {
+			continue
+		}
+		if state, _ := e.windowState(id, now); state == WindowUnknown {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+// staggerInterval is the time between staggered starts: 5 hours divided by
+// the number of accounts, so 3 accounts start a window every 100 minutes.
+func staggerInterval(members int) time.Duration {
+	if members < 2 {
+		return 0
+	}
+	return shortWindow / time.Duration(members)
+}
+
+// staggerStarts spaces auto-start's starts one interval apart. The next slot
+// is an interval after the pool's most recent window start, whoever started
+// it: auto-start, you, or a request. Accounts take slots in the order their
+// windows became free (then the start order), each no earlier than auto-start
+// would start it anyway. Windows that started together spread out over one
+// cycle, and a window a request started early moves the slots after it.
+func (e *Engine) staggerStarts(order []string, ready map[string]time.Time, members []string, now time.Time) map[string]time.Time {
+	interval := staggerInterval(len(members))
+	var last time.Time
+	for _, id := range members {
+		a := e.st.Accounts[id]
+		if a.staggerSent.After(last) {
+			last = a.staggerSent
+		}
+		if state, reset := e.windowState(id, now); state == WindowRunning {
+			if start := reset.Add(-shortLength(a)); start.After(last) && !start.After(now) {
+				last = start
+			}
+		}
+	}
+	queue := make([]string, 0, len(ready))
+	for _, id := range order {
+		if _, ok := ready[id]; ok {
+			queue = append(queue, id)
+		}
+	}
+	sort.SliceStable(queue, func(i, j int) bool { return ready[queue[i]].Before(ready[queue[j]]) })
+	out := make(map[string]time.Time, len(queue))
+	for _, id := range queue {
+		at := ready[id]
+		if !last.IsZero() && last.Add(interval).After(at) {
+			at = last.Add(interval)
+		}
+		if at.Before(now) {
+			at = now
+		}
+		// A later start can run into a start you scheduled: yours decides.
+		if e.plannedBefore(id, at.Add(shortWindow)) {
+			continue
+		}
+		out[id] = at
+		last = at
+	}
+	return out
+}
+
+// staggerInfo returns how many accounts auto-start staggers across and the
+// time between starts, or zeros while it does not stagger.
+func (e *Engine) staggerInfo(now time.Time) (int, time.Duration) {
+	if !e.settings.AutoStartWindows || !e.settings.StaggerWindows {
+		return 0, 0
+	}
+	n := len(e.staggerMembers(now))
+	if n < 2 {
+		return 0, 0
+	}
+	return n, staggerInterval(n)
+}
+
+func (e *Engine) plannedBefore(id string, until time.Time) bool {
+	for _, p := range e.st.Starts {
+		if p.Account == id && p.At.Before(until) {
+			return true
+		}
+	}
+	return false
+}
+
+func weeklyOut(a *Account, now time.Time) bool {
+	if a.Quota == nil || a.Quota.Long == nil {
+		return false
+	}
+	r, _ := a.Quota.Long.Remaining(now)
+	return r <= 0
+}
+
+// shortLength is the length of an account's 5-hour window.
+func shortLength(a *Account) time.Duration {
+	if a != nil && a.Quota != nil && a.Quota.Short != nil {
+		return windowLength(a.Quota.Short)
+	}
+	return shortWindow
 }
 
 // autoStartAt is when auto-start should start an account's next 5-hour
@@ -351,10 +493,8 @@ func (e *Engine) autoStartAt(id string, now time.Time) (time.Time, bool) {
 	if a == nil || a.authIndex == "" || !e.usableAuto(id, now) {
 		return time.Time{}, false
 	}
-	if a.Quota != nil && a.Quota.Long != nil {
-		if r, _ := a.Quota.Long.Remaining(now); r <= 0 {
-			return time.Time{}, false
-		}
+	if weeklyOut(a, now) {
+		return time.Time{}, false
 	}
 	var ended time.Time
 	switch state, reset := e.windowState(id, now); state {
@@ -373,10 +513,8 @@ func (e *Engine) autoStartAt(id string, now time.Time) (time.Time, bool) {
 	if from.Before(now) {
 		from = now
 	}
-	for _, p := range e.st.Starts {
-		if p.Account == id && p.At.Before(from.Add(shortWindow)) {
-			return time.Time{}, false
-		}
+	if e.plannedBefore(id, from.Add(shortWindow)) {
+		return time.Time{}, false
 	}
 	return at, true
 }
@@ -432,6 +570,8 @@ func (e *Engine) RecordStart(r StartResult) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if a := e.st.Accounts[r.Account]; a != nil && r.Source == SourceAuto {
+		// A started window now counts by its own start; a failed one used no slot.
+		a.staggerSent = time.Time{}
 		switch r.Status {
 		case StartRunning:
 			// A request got there first and nothing was sent, so there is

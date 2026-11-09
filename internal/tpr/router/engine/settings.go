@@ -99,6 +99,10 @@ type Settings struct {
 	// AutoStartWindows starts each account's next 5-hour window a minute
 	// after the last one resets, so a window is always running.
 	AutoStartWindows bool `yaml:"auto_start_windows" json:"auto_start_windows"`
+	// StaggerWindows spaces auto-start's window starts evenly: one every
+	// 5 hours divided by the number of accounts, so windows reset in turn
+	// rather than together. It only applies while AutoStartWindows is on.
+	StaggerWindows bool `yaml:"stagger_windows" json:"stagger_windows"`
 	// HistoryLimit bounds the persisted routing history.
 	HistoryLimit int `yaml:"history_limit" json:"history_limit"`
 }

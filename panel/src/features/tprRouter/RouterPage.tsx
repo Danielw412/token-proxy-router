@@ -710,7 +710,17 @@ function WindowsPanel({
   return (
     <Panel
       title={t('tpr.router.windows_title')}
-      description={t('tpr.router.windows_description')}
+      description={[
+        t('tpr.router.windows_description'),
+        pool.staggerAccounts > 1
+          ? t('tpr.router.stagger_active', {
+              every: formatDuration(pool.staggerMinutes * 60_000),
+              count: pool.staggerAccounts,
+            })
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       actions={
         <>
           <ToggleSwitch
@@ -721,6 +731,18 @@ function WindowsPanel({
               void act(() => tprApi.routerPatchSettings(provider, { auto_start_windows: value }))
             }
           />
+          <ToggleSwitch
+            label={t('tpr.router.stagger')}
+            ariaDescribedBy={`${provider}-stagger-hint`}
+            checked={pool.settings.stagger_windows}
+            disabled={busy || !pool.settings.auto_start_windows}
+            onChange={(value) =>
+              void act(() => tprApi.routerPatchSettings(provider, { stagger_windows: value }))
+            }
+          />
+          <span id={`${provider}-stagger-hint`} hidden>
+            {t('tpr.router.stagger_hint')}
+          </span>
           <Button
             variant="secondary"
             size="sm"

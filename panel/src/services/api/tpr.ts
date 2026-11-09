@@ -243,6 +243,7 @@ export interface RouterSettings {
   disabled_accounts: string[];
   manual_fallback: string;
   auto_start_windows: boolean;
+  stagger_windows: boolean;
 }
 
 export interface RouterPool {
@@ -264,6 +265,9 @@ export interface RouterPool {
   slowdownSeconds: number;
   waiting: number;
   windows: RouterWindowRow[];
+  /** Auto-start's stagger: accounts it spreads windows across and minutes between starts; 0 when off. */
+  staggerAccounts: number;
+  staggerMinutes: number;
   lastError: string;
 }
 
@@ -356,6 +360,7 @@ export const normalizeRouterPool = (raw: unknown): RouterPool => {
       disabled_accounts: strings(settings.disabled_accounts),
       manual_fallback: asString(settings.manual_fallback) || 'auto',
       auto_start_windows: asBool(settings.auto_start_windows),
+      stagger_windows: asBool(settings.stagger_windows),
     },
     warnings: strings(pool.warnings),
     history: asArray(pool.history)
@@ -377,6 +382,8 @@ export const normalizeRouterPool = (raw: unknown): RouterPool => {
       : null,
     slowdownSeconds: asNumber(asRecord(pool.slowdown).seconds) ?? asNumber(pool.slow_down_seconds) ?? 0,
     waiting: asNumber(pool.waiting) ?? 0,
+    staggerAccounts: asNumber(asRecord(pool.starter).stagger_accounts) ?? 0,
+    staggerMinutes: asNumber(asRecord(pool.starter).stagger_minutes) ?? 0,
     windows: asArray(pool.windows)
       .map(asRecord)
       .map((row) => ({
