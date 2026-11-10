@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.0.6
 
 ### Changed
 
@@ -15,6 +15,10 @@
 
 ### Fixed
 
+- Claude Fable 5.2 works from Claude Code clients that TPR does not recognize as the plain CLI,
+  such as T3 Code. TPR sent those requests to Anthropic as Claude Code 2.1.280, and Anthropic
+  refused Fable 5.2 from versions older than 2.1.290. TPR now presents Claude Code 2.1.321, with
+  upstream's matching SDK version, Node version and beta flags.
 - A backup taken while the hub runs no longer copies upstream's new key-value database,
   `auth/kv.db`, which is open at the time. A restore keeps this machine's copy.
 
