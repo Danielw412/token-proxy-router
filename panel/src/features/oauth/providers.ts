@@ -28,6 +28,8 @@ export interface BuiltInOAuthProviderCard {
   flow: OAuthFlowKind;
   /** 区分同品牌的不同站点，磁贴副行展示。 */
   domain?: string;
+  /** A sign-in caveat shown as an InfoTip after the "open the sign-in page" step. */
+  signInNoteKey?: string;
 }
 
 export interface PluginOAuthProviderCard {
@@ -64,6 +66,7 @@ export const OAUTH_PROVIDERS: BuiltInOAuthProviderCard[] = [
     titleKey: 'auth_login.antigravity_oauth_title',
     icon: iconAntigravity,
     flow: 'browser',
+    signInNoteKey: 'auth_login.antigravity_oauth_hint',
   },
   {
     kind: 'builtin',
@@ -81,6 +84,7 @@ export const OAUTH_PROVIDERS: BuiltInOAuthProviderCard[] = [
     icon: { light: iconKimiTileBlack, dark: iconKimiTileWhite },
     flow: 'device',
     domain: 'kimi.com',
+    signInNoteKey: 'auth_login.kimi_oauth_hint',
   },
   {
     kind: 'builtin',
@@ -90,6 +94,7 @@ export const OAUTH_PROVIDERS: BuiltInOAuthProviderCard[] = [
     icon: { light: iconKimiTileBlack, dark: iconKimiTileWhite },
     flow: 'device',
     domain: 'kimi.ai',
+    signInNoteKey: 'auth_login.kimi_ai_oauth_hint',
   },
   {
     kind: 'builtin',
@@ -106,6 +111,7 @@ export const OAUTH_PROVIDERS: BuiltInOAuthProviderCard[] = [
     titleKey: 'auth_login.devin_oauth_title',
     icon: { light: iconDevin, dark: iconDevinDark },
     flow: 'browser',
+    signInNoteKey: 'auth_login.devin_oauth_hint',
   },
 ];
 

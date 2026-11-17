@@ -6,6 +6,7 @@ import { useAuthStore, useThemeStore } from '@/stores';
 import iconVertex from '@/assets/icons/vertex.svg';
 import iconCodex from '@/assets/icons/codex.svg';
 import { OAuthHeader } from './components/OAuthHeader';
+import { LoginProxyField } from './components/LoginProxyField';
 import { ProviderTile } from './components/ProviderTile';
 import { OAuthFlowDialog, type DialogHeading } from './components/OAuthFlowDialog';
 import { VertexImportDialog } from './components/VertexImportDialog';
@@ -101,6 +102,9 @@ export function OAuthPage({ embedded = false }: { embedded?: boolean } = {}) {
     icon: iconOf(card),
   });
 
+  const signInNoteOf = (card: OAuthProviderCard) =>
+    card.kind === 'builtin' && card.signInNoteKey ? t(card.signInNoteKey) : undefined;
+
   const tileStatusLabel = (status: ProviderFlowState['status']) =>
     status === 'waiting'
       ? t('auth_login.tile_waiting')
@@ -165,6 +169,13 @@ export function OAuthPage({ embedded = false }: { embedded?: boolean } = {}) {
         />
       )}
 
+      {/* Optional login proxy: set it before choosing a provider. */}
+      <LoginProxyField
+        value={flows.loginProxy}
+        rejectedValue={flows.loginProxyRejected}
+        onChange={flows.setLoginProxy}
+      />
+
       <div className={styles.grid}>{providerCards.map(renderTile)}</div>
 
       <section className={styles.section} aria-labelledby={otherMethodsId}>
@@ -197,6 +208,7 @@ export function OAuthPage({ embedded = false }: { embedded?: boolean } = {}) {
           state={flows.states[dialogCard.id] ?? {}}
           text={(suffix) => flows.providerText(dialogCard.id, suffix)}
           supportsCallback={supportsManualCallback(dialogCard)}
+          signInNote={signInNoteOf(dialogCard)}
           onStart={() => void flows.startAuth(dialogCard.id)}
           onCancel={() => void flows.cancelAuth(dialogCard.id)}
           onCallbackChange={(value) => flows.setCallbackInput(dialogCard.id, value)}

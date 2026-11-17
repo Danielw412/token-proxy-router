@@ -214,20 +214,8 @@ export function ProviderSheet({
       open={state.open}
       onClose={onClose}
       size={descriptor.sheetSize}
-      eyebrow={
-        state.mode === 'detail'
-          ? t('providersPage.detail.title')
-          : state.mode === 'create'
-            ? t('providersPage.form.createEyebrow')
-            : t('providersPage.form.editEyebrow')
-      }
+      // The title already reads "<mode> · <provider>"; no eyebrow or route subtitle to repeat it.
       title={titleText}
-      description={t('providersPage.table.description', {
-        route:
-          state.brand === 'openaiCompatibility'
-            ? '/ai-providers/openai'
-            : `/ai-providers/${state.brand}`,
-      })}
       footer={footer}
       closeDisabled={submitting}
       confirmClose={confirmDiscardIfDirty}
