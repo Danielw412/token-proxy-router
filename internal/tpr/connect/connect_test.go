@@ -218,7 +218,7 @@ func TestConnectAllToolsThenUndoIsByteForByte(t *testing.T) {
 
 	codex := read(t, codexPath)
 	for _, want := range []string{"# my settings", `model = "gpt-test"  # keep me`, "[model_providers.other]", "[profiles.work]", "[notice]",
-		"[model_providers.tpr]", `base_url = "` + w.hub.URL + `/v1"`, `wire_api = "responses"`, `env_key = "TPR_API_KEY"`, "[profiles.tpr]"} {
+		"[model_providers.tpr]", `base_url = "` + w.hub.URL + `/v1"`, `wire_api = "responses"`, `env_key = "TPR_API_KEY"`, `model_catalog_url = "` + w.hub.URL + `/v1/models"`, "[profiles.tpr]"} {
 		if !strings.Contains(codex, want) {
 			t.Errorf("codex config lacks %q:\n%s", want, codex)
 		}
@@ -269,7 +269,7 @@ func TestConnectAllToolsThenUndoIsByteForByte(t *testing.T) {
 	if codexInstance.Driver != "codex" || codexInstance.DisplayName != "Router: Codex" || !codexInstance.Enabled {
 		t.Errorf("codex instance = %+v", codexInstance)
 	}
-	wantArgs := "-c model_provider=tpr -c model_providers.tpr.name=TokenProxyRouter -c model_providers.tpr.base_url=" + w.hub.URL + "/v1 -c model_providers.tpr.env_key=TPR_API_KEY -c model_providers.tpr.wire_api=responses"
+	wantArgs := "-c model_provider=tpr -c model_providers.tpr.name=TokenProxyRouter -c model_providers.tpr.base_url=" + w.hub.URL + "/v1 -c model_providers.tpr.env_key=TPR_API_KEY -c model_providers.tpr.wire_api=responses -c model_providers.tpr.model_catalog_url=" + w.hub.URL + "/v1/models"
 	if codexInstance.Config["launchArgs"] != wantArgs {
 		t.Errorf("launchArgs = %q", codexInstance.Config["launchArgs"])
 	}

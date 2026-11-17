@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Codex's model picker lists the hub's models, including ones newer than the Codex release, such
+  as GPT-6.2 Sol and Astra. `tpr connect` now sets `model_catalog_url`, so Codex loads its picker
+  from the hub instead of the list built into Codex. Run `tpr connect` again to pick this up.
+
 ## v1.0.7
 
 ### Added

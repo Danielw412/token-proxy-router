@@ -368,7 +368,7 @@ T3 Code runs provider instances from `settings.json` in `$T3CODE_HOME/userdata`
     "displayName": "Router: Codex",
     "enabled": true,
     "environment": [{"name": "TPR_API_KEY", "value": "", "sensitive": true, "valueRedacted": true}],
-    "config": {"launchArgs": "-c model_provider=tpr -c model_providers.tpr.name=TokenProxyRouter -c model_providers.tpr.base_url=<hub>/v1 -c model_providers.tpr.env_key=TPR_API_KEY -c model_providers.tpr.wire_api=responses"}
+    "config": {"launchArgs": "-c model_provider=tpr -c model_providers.tpr.name=TokenProxyRouter -c model_providers.tpr.base_url=<hub>/v1 -c model_providers.tpr.env_key=TPR_API_KEY -c model_providers.tpr.wire_api=responses -c model_providers.tpr.model_catalog_url=<hub>/v1/models"}
   },
   "tpr-claude": {
     "driver": "claudeAgent",

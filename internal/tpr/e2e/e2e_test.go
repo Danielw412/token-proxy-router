@@ -501,6 +501,38 @@ func TestEndToEnd(t *testing.T) {
 		}
 	})
 
+	t.Run("Codex's model picker lists the models TPR ships ahead of upstream", func(t *testing.T) {
+		// tpr connect points Codex's model_catalog_url here.
+		req, err := http.NewRequest(http.MethodGet, s.base+"/v1/models?client_version=0.169.0", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", "Bearer "+clientKey)
+		resp, err := s.client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		var catalog struct {
+			Models []struct {
+				Slug       string `json:"slug"`
+				Visibility string `json:"visibility"`
+			} `json:"models"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&catalog); err != nil || resp.StatusCode != 200 {
+			t.Fatalf("catalog: %d %v", resp.StatusCode, err)
+		}
+		listed := map[string]bool{}
+		for _, m := range catalog.Models {
+			listed[m.Slug] = m.Visibility == "list"
+		}
+		for _, slug := range []string{"gpt-6.2-sol", "gpt-6.2-astra"} {
+			if !listed[slug] {
+				t.Errorf("%s is not listed for Codex 0.169.0", slug)
+			}
+		}
+	})
+
 	t.Run("a session stays on its account", func(t *testing.T) {
 		first, _ := s.codex("sticky")
 		// New sessions move to the other account; the old session must not.

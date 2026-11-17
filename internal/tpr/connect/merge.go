@@ -27,17 +27,25 @@ const (
 )
 
 // CodexTOML returns the config blocks `tpr connect --codex` adds.
+//
+// model_catalog_url makes Codex load its model picker from the hub, so a model
+// the hub serves shows up before Codex ships a release that bundles it. Without
+// it, Codex lists only the models built into the binary for a custom provider.
 func CodexTOML(hub string) string {
 	return fmt.Sprintf(`[model_providers.tpr]
 name = "TokenProxyRouter"
 base_url = %s
 wire_api = "responses"
 env_key = %s
+model_catalog_url = %s
 
 [profiles.tpr]
 model_provider = "tpr"
-`, strconv.Quote(hub+"/v1"), strconv.Quote(codexEnvKey))
+`, strconv.Quote(hub+"/v1"), strconv.Quote(codexEnvKey), strconv.Quote(codexCatalogURL(hub)))
 }
+
+// codexCatalogURL is where Codex fetches its model catalog from the hub.
+func codexCatalogURL(hub string) string { return hub + "/v1/models" }
 
 // tomlLines splits a file for line-based editing, remembering its line ending.
 type tomlLines struct {
@@ -408,6 +416,7 @@ func t3Instances(hub string) map[string]t3Instance {
 		"-c model_providers.tpr.base_url=" + hub + "/v1",
 		"-c model_providers.tpr.env_key=" + codexEnvKey,
 		"-c model_providers.tpr.wire_api=responses",
+		"-c model_providers.tpr.model_catalog_url=" + codexCatalogURL(hub),
 	}, " ")
 	return map[string]t3Instance{
 		t3CodexInstance: {
