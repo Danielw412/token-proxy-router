@@ -50,7 +50,8 @@ After a merge, run `make check`, and add any new upstream file you touched to th
 
 | Upstream file | Change |
 | --- | --- |
-| `cmd/server/main.go` | One import. At the top of `main`, `tprcli.Dispatch` runs `tpr` subcommands and `DefaultConfigPath` moves the default config to the data folder. `tprcli.BeforeConfigLoad` handles first run and a staged restore, in the local-config branch only, so the Postgres, Git, object store and Home modes are untouched. Three version lines say "Token Proxy Router". |
+| `cmd/server/main.go` | One import. At the top of `main`, `tprcli.Dispatch` runs `tpr` subcommands and `DefaultConfigPath` moves the default config to the data folder. `tprcli.BeforeConfigLoad` handles first run and a staged restore, in the local-config branch only, so the Postgres, Git, object store and Home modes are untouched. Since v8.0.76, `main` only runs these hooks and then `os.Exit(run())`. Three version lines say "Token Proxy Router". |
+| `cmd/server/main_exit_test.go` | `TestMissingConfigExitsWithFailure` is skipped: a missing config starts first-run setup in TPR. |
 | `internal/managementasset/updater.go` | The `tprPanelEmbedded` constant. `StartAutoUpdater` returns early, and `EnsureLatestManagementHTML` only reports whether an override file exists, so there is no runtime download and no hosted fallback. Upstream's code stays below these checks, so merges stay clean. |
 | `internal/api/server_management.go` | One import. `serveManagementControlPanel` calls `webui.Serve` first. `MANAGEMENT_STATIC_PATH` still selects a local file, which never gets overwritten. |
 | `internal/api/server_routes.go` | `GET /` redirects to the panel instead of answering JSON. `tpr doctor` recognises an old CLIProxyAPI by upstream's JSON, so keep the two different. |
@@ -72,6 +73,23 @@ After a merge, check that these still hold:
 - `config.SaveConfigPreserveCommentsUpdateNestedScalar` and `config.PrepareConfigFileForUpload` still exist. Migrate and restore use them.
 - The v8 config layout still has `server.host`, `server.port`, `access.api-keys`, `management.secret-key`, `oauth.auth-dir` and `observability.usage.usage-statistics-enabled`. `setup.RenderConfig` writes those, and its test loads the result through upstream's loader.
 - `Tailscale-User-Login` is still only trusted in `internal/tpr/tailscale`.
+
+## Models ahead of upstream
+
+`internal/tpr/catalog` adds models that upstream's catalogs do not list yet, such as a model
+OpenAI released today. Its `additions/` files use upstream's catalog format. Every catalog the
+registry loads, embedded or refreshed, passes through it, and it adds only what the catalog
+lacks. Once upstream lists a model, upstream's entry wins, and the addition can be deleted.
+
+| Upstream file | Change |
+| --- | --- |
+| `internal/registry/model_updater.go` | One import. `loadModelsFromBytes` passes the embedded catalog through `tprcatalog.WithModels`. |
+| `internal/registry/catalog_sources.go` | One import. `publishCatalogBytes` passes each refreshed catalog through `tprcatalog.WithModels`. |
+| `internal/registry/codex_client_models.go` | One import. `loadCodexClientModelsFromBytes` passes every Codex client catalog through `tprcatalog.WithCodexClientModels`. |
+
+After a merge, check that these three functions are still the only places that store a
+catalog. `TestRefreshedUpstreamCatalogKeepsBundledModels` fails if the refresh path stops
+calling the hook.
 
 ## Router, store, quota, alerts, health, key usage
 

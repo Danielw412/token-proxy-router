@@ -78,6 +78,7 @@ suite to CI. `go test ./...` is expensive and mostly tests code TPR does not cha
 | `internal/tpr/tailscale`, `backup`, `connect`, `migrate` | Tailnet exposure and identity sign-in, encrypted backups, client configuration, import from CLIProxyAPI. |
 | `internal/tpr/webui` | Embedded panel. `dist/` is built, not committed. |
 | `internal/tpr/home` | Paths in the single data folder. Use it rather than building paths. |
+| `internal/tpr/catalog` | Models TPR adds to upstream's model catalogs until upstream lists them. |
 | `internal/tpr/e2e` | End-to-end tests. |
 | `panel/` | The web panel, a `git subtree` of upstream's panel that TPR changes freely. |
 | `scripts/` | `install.sh`, `install.ps1`, `sync-upstream.sh`. |

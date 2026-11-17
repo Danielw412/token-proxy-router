@@ -73,6 +73,7 @@ func writeTestServerConfig(t *testing.T, dir string, port int) string {
 }
 
 func TestMissingConfigExitsWithFailure(t *testing.T) {
+	t.Skip("TPR: a missing config starts first-run setup instead of failing, see tprcli.BeforeConfigLoad")
 	dir := t.TempDir()
 	missingPath := filepath.Join(dir, "missing.yaml")
 	command, stdout, stderr := newServerExitCommand(t, dir, "--config", missingPath)

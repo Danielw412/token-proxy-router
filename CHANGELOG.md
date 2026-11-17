@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.0.7
+
+### Added
+
+- GPT-6.2 Sol and GPT-6.2 Astra for Codex Plus, Pro and Business accounts, from OpenAI's
+  Codex model catalog. Codex clients need version 0.166.0 or later to list them.
+- TPR can now list a model before upstream's model catalogs do. The hub keeps adding it to
+  every catalog it loads or refreshes until upstream lists the model itself.
+
+### Changed
+
+- Based on CLIProxyAPI v8.0.76 (was v8.0.61) and Management Center v1.28.1 (was v1.27.3).
+  Upstream's changes include payload rules applied as the last step before every request,
+  user text replacement rules, Retry-After headers kept on Codex overload errors, Claude
+  expired refresh tokens treated as final, more reliable Codex websocket failover, Gemini 4
+  models, and a login proxy for OAuth sign-ins.
+- The panel takes upstream's plugin page, quota card layouts, Codex credit overage controls
+  and model catalog refresh on the accounts page. The plugin store, the dashboard page and
+  sponsor providers stay out.
+
 ## v1.0.6
 
 ### Changed
