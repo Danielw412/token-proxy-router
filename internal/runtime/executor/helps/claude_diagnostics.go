@@ -6,13 +6,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/MoeForge/moego/ojson"
+	"github.com/MoeForge/moego/regexp"
 	"github.com/google/uuid"
 	homekv "github.com/router-for-me/CLIProxyAPI/v8/internal/home"
 )
@@ -838,6 +838,9 @@ func ClaudePayloadHas1hTTL(payload []byte) bool {
 	// escaped, so a payload without that token cannot match.
 	if len(payload) == 0 || !jsonMayContainASCII(payload, `"1h"`) || !ojson.ValidBytes(payload) {
 		return false
+	}
+	if topCC := ojson.GetBytesNoCopy(payload, "cache_control"); topCC.IsObject() && topCC.Get("ttl").String() == "1h" {
+		return true
 	}
 	has1h := false
 	checkBlock := func(item ojson.Result) bool {

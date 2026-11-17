@@ -2,12 +2,12 @@ package helps
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/MoeForge/moego/json"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	homekv "github.com/router-for-me/CLIProxyAPI/v8/internal/home"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
@@ -374,7 +374,7 @@ func TestResolveClaudeDeviceProfilePreservesConfirmedClientAtBaselineVersion(t *
 		t.Fatalf("UserAgent = %q, want confirmed cli entrypoint preserved", profile.UserAgent)
 	}
 	if profile.PackageVersion != "0.128.0" || profile.RuntimeVersion != "v26.12.1" {
-		t.Fatalf("software profile = %s/%s, want 0.112.1/v26.3.0", profile.PackageVersion, profile.RuntimeVersion)
+		t.Fatalf("software profile = %s/%s, want 0.128.0/v26.12.1", profile.PackageVersion, profile.RuntimeVersion)
 	}
 }
 
