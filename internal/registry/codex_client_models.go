@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/MoeForge/moego/json"
+	tprcatalog "github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/catalog" // TPR
 	log "github.com/sirupsen/logrus"
 )
 
@@ -85,6 +86,7 @@ func CodexClientModelThinkingLevels(slug string) []string {
 }
 
 func loadCodexClientModelsFromBytes(data []byte, source string) (bool, error) {
+	data = tprcatalog.WithCodexClientModels(data) // TPR: models TPR ships ahead of upstream
 	responsesLiteMap, thinkingLevelsMap, err := parseAndValidateCodexClientModelsJSON(data)
 	if err != nil {
 		return false, fmt.Errorf("%s: %w", source, err)

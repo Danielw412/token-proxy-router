@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/MoeForge/moego/json"
+	tprcatalog "github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/catalog" // TPR
 	log "github.com/sirupsen/logrus"
 )
 
@@ -321,6 +322,7 @@ func validateCatalogBytes(data []byte) error {
 }
 
 func publishCatalogBytes(data []byte) ([]string, error) {
+	data = tprcatalog.WithModels(data) // TPR: models TPR ships ahead of upstream
 	var parsed staticModelsJSON
 	if errUnmarshal := json.Unmarshal(data, &parsed); errUnmarshal != nil {
 		return nil, errUnmarshal

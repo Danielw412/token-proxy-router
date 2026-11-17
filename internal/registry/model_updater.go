@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/MoeForge/moego/json"
+	tprcatalog "github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/catalog" // TPR
 	log "github.com/sirupsen/logrus"
 )
 
@@ -193,6 +194,7 @@ func mergeProviderNames(existing, incoming []string) []string {
 }
 
 func loadModelsFromBytes(data []byte, source string) error {
+	data = tprcatalog.WithModels(data) // TPR: models TPR ships ahead of upstream
 	var parsed staticModelsJSON
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		return fmt.Errorf("%s: decode models catalog: %w", source, err)
