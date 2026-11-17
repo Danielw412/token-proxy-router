@@ -118,6 +118,21 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 	t.Fatalf("timed out waiting for %s", what)
 }
 
+// waitChildPID waits until the supervisor publishes a child other than not, and
+// returns its pid. A child can answer its health check before the supervisor
+// has written the state file, which is slow on a busy Windows runner, so a
+// single read straight after the health check can still see the previous child.
+func waitChildPID(t *testing.T, not int) int {
+	t.Helper()
+	var pid int
+	waitFor(t, "the child pid to be published", func() bool {
+		state, ok := ReadSupervisorState()
+		pid = state.ChildPID
+		return ok && pid != 0 && pid != not
+	})
+	return pid
+}
+
 func markerCount(path string) int {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -177,10 +192,7 @@ func TestSupervisorStopFileStopsChildAndExits(t *testing.T) {
 	if !SupervisorRunning() {
 		t.Fatal("state file should show a live supervisor")
 	}
-	state, _ := ReadSupervisorState()
-	if state.ChildPID == 0 {
-		t.Fatal("child pid should be published")
-	}
+	waitChildPID(t, 0)
 	if err := requestStop(); err != nil {
 		t.Fatal(err)
 	}
@@ -209,16 +221,13 @@ func TestSupervisorRestartFileRestartsChild(t *testing.T) {
 	defer cancel()
 	done := runInBackground(t, s, ctx)
 	waitFor(t, "healthy child", func() bool { return s.waitHealthyOnce(env.port) })
-	first, _ := ReadSupervisorState()
+	first := waitChildPID(t, 0)
 	if err := RequestRestart(); err != nil {
 		t.Fatal(err)
 	}
 	waitFor(t, "second start", func() bool { return markerCount(env.marker) >= 2 })
 	waitFor(t, "healthy again", func() bool { return s.waitHealthyOnce(env.port) })
-	second, _ := ReadSupervisorState()
-	if second.ChildPID == first.ChildPID {
-		t.Fatal("child should be a new process")
-	}
+	waitChildPID(t, first)
 	cancel()
 	waitDone(t, done)
 }
