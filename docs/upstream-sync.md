@@ -71,7 +71,7 @@ After a merge, check that these still hold:
 - `GET /healthz` still answers 200 with no key. The supervisor's health check and rollback depend on it.
 - `-config` still parses as a flag, and upstream has no flag or subcommand named like a `tpr` command. `cmd/server` passes unknown arguments through, and `internal/tpr/cli` checks its list first.
 - `config.SaveConfigPreserveCommentsUpdateNestedScalar` and `config.PrepareConfigFileForUpload` still exist. Migrate and restore use them.
-- The v8 config layout still has `server.host`, `server.port`, `access.api-keys`, `management.secret-key`, `oauth.auth-dir` and `observability.usage.usage-statistics-enabled`. `setup.RenderConfig` writes those, and its test loads the result through upstream's loader.
+- The v8 config layout still has `server.host`, `server.port`, `server.server-id`, `access.api-keys`, `management.secret-key`, `oauth.auth-dir` and `observability.usage.usage-statistics-enabled`. `setup.RenderConfig` writes those, and its test loads the result through upstream's loader and checks that the load leaves the file unchanged.
 - `Tailscale-User-Login` is still only trusted in `internal/tpr/tailscale`.
 
 ## Models ahead of upstream

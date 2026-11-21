@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/google/uuid"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/tpr/home"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -186,11 +187,16 @@ func randomToken(size int) (string, error) {
 
 // RenderConfig returns a compact config.yaml. The management key is stored as a
 // bcrypt hash, the same form upstream rewrites a plaintext key into on load, so
-// the plaintext never reaches this file.
+// the plaintext never reaches this file. It also carries a server ID, which
+// upstream would otherwise generate and write back on the first load.
 func RenderConfig(host string, port int, authDir string, keys Keys) ([]byte, error) {
 	hashed, err := bcrypt.GenerateFromPassword([]byte(keys.Management), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("hash management key: %w", err)
+	}
+	serverID, errID := uuid.NewRandom()
+	if errID != nil {
+		return nil, fmt.Errorf("generate server ID: %w", errID)
 	}
 	var b strings.Builder
 	b.WriteString("# Token Proxy Router configuration. Generated on first run.\n")
@@ -202,7 +208,8 @@ func RenderConfig(host string, port int, authDir string, keys Keys) ([]byte, err
 		b.WriteString("  # Loopback only. Use `tpr expose` to publish on your tailnet.\n")
 	}
 	fmt.Fprintf(&b, "  host: %s\n", strconv.Quote(host))
-	fmt.Fprintf(&b, "  port: %d\n\n", port)
+	fmt.Fprintf(&b, "  port: %d\n", port)
+	fmt.Fprintf(&b, "  server-id: %s\n\n", strconv.Quote(serverID.String()))
 	b.WriteString("access:\n  # Client API keys. Tools send one of these as their API key.\n  api-keys:\n")
 	fmt.Fprintf(&b, "    - %s\n\n", strconv.Quote(keys.API))
 	b.WriteString("management:\n  allow-remote: false\n")
