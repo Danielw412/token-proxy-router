@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Based on CLIProxyAPI v8.1.0 (was v8.0.76) and Management Center v1.28.3 (was v1.28.1).
+  Upstream's changes include a persistent server ID in `config.yaml`, a GitHub Copilot
+  provider, many Antigravity fixes, steadier stream failover and cancellation in the auth
+  manager, and payload replace rules for more fields in the panel.
+- New installs write a `server.server-id` on first run. Existing installs get one from
+  upstream on their next start.
+- GPT-6.2 Sol and Astra now come from upstream's model catalogs, so TPR no longer adds them.
+
 ## v1.0.8
 
 ### Fixed

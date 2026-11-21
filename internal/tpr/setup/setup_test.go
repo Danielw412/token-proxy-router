@@ -99,6 +99,9 @@ func TestBootstrapGeneratesLoadableSafeConfig(t *testing.T) {
 	if cfg.RemoteManagement.AllowRemote {
 		t.Fatal("remote management must default off")
 	}
+	if cfg.ServerID == "" {
+		t.Fatal("server ID not loaded")
+	}
 	after, err := os.ReadFile(home.ConfigPath())
 	if err != nil {
 		t.Fatal(err)

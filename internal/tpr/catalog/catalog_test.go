@@ -81,9 +81,13 @@ func TestWithCodexClientModelsReturnsInputWhenNothingChanges(t *testing.T) {
 }
 
 func TestBundledAdditionsParse(t *testing.T) {
+	// Both files may be empty once upstream lists every addition.
 	sections := ojson.ParseBytes(additionalModels)
-	if !sections.IsObject() || len(sections.Map()) == 0 {
-		t.Fatal("additions/models.json has no sections")
+	if !sections.IsObject() {
+		t.Fatal("additions/models.json is not an object")
+	}
+	if !ojson.GetBytes(additionalCodexClientModels, "models").IsArray() {
+		t.Fatal("additions/codex_client_models.json has no models array")
 	}
 	for name, entries := range sections.Map() {
 		for _, entry := range entries.Array() {
