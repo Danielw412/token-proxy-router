@@ -375,13 +375,13 @@ func applyPayloadConfigWithTrackedPathsForExecutorAndAuthDoc(cfg *config.Config,
 					}
 				}
 			}
-			// Replace text after overrides and before final field deletion.
+			// Replace selected strings after overrides and before final field deletion.
 			for i := range rules.Replace {
 				rule := &rules.Replace[i]
 				if rule.Validate() != nil || !payloadModelRulesMatchDoc(rule.Models, protocol, fromProtocol, headers, doc, root, candidates) {
 					continue
 				}
-				if replacePayloadUserTextDoc(doc, protocol, root, rule, noteRuleWrite) {
+				if replacePayloadTextDoc(doc, protocol, root, rule, i, noteRuleWrite) {
 					mutated = true
 				}
 			}
@@ -583,20 +583,7 @@ func payloadModelRulesMatchDoc(rules []config.PayloadModelRule, protocol string,
 	}
 	for _, model := range models {
 		for _, entry := range rules {
-			name := strings.TrimSpace(entry.Name)
-			if name == "" {
-				continue
-			}
-			if ep := strings.TrimSpace(entry.Protocol); ep != "" && protocol != "" && !strings.EqualFold(ep, protocol) {
-				continue
-			}
-			if !payloadFromProtocolMatches(entry.FromProtocol, fromProtocol) {
-				continue
-			}
-			if !payloadHeadersMatch(headers, entry.Headers) {
-				continue
-			}
-			if !matchModelPattern(name, model) {
+			if !payloadModelSelectorMatches(entry, model, protocol, fromProtocol, headers) {
 				continue
 			}
 			if payloadModelRuleConditionsMatchDoc(doc, root, entry) {
@@ -605,6 +592,11 @@ func payloadModelRulesMatchDoc(rules []config.PayloadModelRule, protocol string,
 		}
 	}
 	return false
+}
+
+func payloadModelSelectorMatches(entry config.PayloadModelRule, model, protocol, fromProtocol string, headers http.Header) bool {
+	name, ep := strings.TrimSpace(entry.Name), strings.TrimSpace(entry.Protocol)
+	return name != "" && (ep == "" || protocol == "" || strings.EqualFold(ep, protocol)) && payloadFromProtocolMatches(entry.FromProtocol, fromProtocol) && payloadHeadersMatch(headers, entry.Headers) && matchModelPattern(name, model)
 }
 
 func payloadModelRuleConditionsMatchDoc(doc *ojson.Doc, root string, rule config.PayloadModelRule) bool {
