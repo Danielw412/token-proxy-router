@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- A Codex or Claude account that hit its usage limit stays out of use until the reset time in the
+  provider's rejection, which can be days away for a weekly limit, even after the provider resets
+  it early. When a quota poll shows the account has quota again, the router now clears the
+  server's usage-limit cooldown so requests can use the account.
+
 ## v1.0.9
 
 ### Changed

@@ -52,6 +52,9 @@ type Host interface {
 	FetchQuota(ctx context.Context, provider, id string) (engine.Quota, error)
 	// ExecuteModel runs one non-streaming request locked to one account.
 	ExecuteModel(ctx context.Context, provider, model string, body []byte, headers http.Header, authID string) (ModelResponse, error)
+	// ReleaseQuotaCooldown ends the proxy's cooldown on an account when every
+	// cooldown it holds comes from a usage limit. It reports whether it did.
+	ReleaseQuotaCooldown(ctx context.Context, id string) (bool, error)
 }
 
 // managerHost implements Host on the auth manager. Tokens stay inside the
@@ -165,6 +168,31 @@ func (h *managerHost) FetchQuota(ctx context.Context, provider, id string) (engi
 		return h.fetchClaude(ctx, auth)
 	}
 	return engine.Quota{}, fmt.Errorf("no quota endpoint for provider %q", provider)
+}
+
+// ReleaseQuotaCooldown leaves any cooldown with another cause, such as a
+// refresh failure or a server error, to the proxy.
+func (h *managerHost) ReleaseQuotaCooldown(ctx context.Context, id string) (bool, error) {
+	auth, ok := h.mgr.GetByID(id)
+	if !ok || auth == nil || !onlyQuotaCooldowns(coreauth.CooldownSnapshotForAuth(auth, time.Now())) {
+		return false, nil
+	}
+	if _, _, err := h.mgr.ResetQuota(ctx, id); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func onlyQuotaCooldowns(views []coreauth.CooldownView) bool {
+	if len(views) == 0 {
+		return false
+	}
+	for _, v := range views {
+		if v.Reason != "quota" && v.Reason != "credential_quota" {
+			return false
+		}
+	}
+	return true
 }
 
 func (h *managerHost) fetchCodex(ctx context.Context, auth *coreauth.Auth) (engine.Quota, error) {

@@ -240,8 +240,31 @@ func (p *Pool) refreshQuota(ctx context.Context, id, authIndex string) {
 	}
 	q, err := p.host.FetchQuota(ctx, p.provider, id)
 	p.Engine.ApplyPolledQuota(id, q, err)
-	if err == nil && p.observe != nil {
+	if err != nil {
+		return
+	}
+	p.releaseCooldown(ctx, id)
+	if p.observe != nil {
 		p.observe(p.provider, id)
+	}
+}
+
+// releaseCooldown ends the proxy's usage-limit cooldown on an account that a
+// fresh poll shows has quota again. The proxy otherwise drops the account from
+// every candidate list until the reset time in its last 429, which can be days
+// away after a weekly limit even when the provider resets early, so the router
+// could never pick it.
+func (p *Pool) releaseCooldown(ctx context.Context, id string) {
+	if !p.Engine.QuotaAvailable(id) {
+		return
+	}
+	released, err := p.host.ReleaseQuotaCooldown(ctx, id)
+	if err != nil {
+		p.setErr("clear cooldown: " + SanitizeError(err.Error()))
+		return
+	}
+	if released {
+		log.WithFields(log.Fields{"provider": p.provider, "auth": id}).Info("router: cleared the proxy's usage-limit cooldown: a fresh poll shows quota left")
 	}
 }
 

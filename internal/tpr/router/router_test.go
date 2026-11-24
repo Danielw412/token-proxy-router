@@ -28,6 +28,7 @@ type fakeHost struct {
 	fetchErr error
 	fetches  []string
 	executed []string
+	released []string
 }
 
 func (f *fakeHost) Accounts() []engine.HostAccount {
@@ -51,6 +52,13 @@ func (f *fakeHost) ExecuteModel(_ context.Context, _ string, model string, _ []b
 	defer f.mu.Unlock()
 	f.executed = append(f.executed, authID+":"+model)
 	return ModelResponse{StatusCode: 200, Body: []byte(`{"usage":{"input_tokens":3,"output_tokens":1,"cache_read_input_tokens":2}}`)}, nil
+}
+
+func (f *fakeHost) ReleaseQuotaCooldown(_ context.Context, id string) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.released = append(f.released, id)
+	return true, nil
 }
 
 func newTestRouter(t *testing.T) (*Router, *fakeHost) {
@@ -697,5 +705,86 @@ func TestRouterAPIContract(t *testing.T) {
 	}
 	if code, _ = call(t, e, http.MethodPost, "/tpr/router/select?provider=codex", `{bad`); code != 400 {
 		t.Fatalf("bad JSON: %d", code)
+	}
+}
+
+func codexReading(now time.Time, shortUsed, longUsed float64, limitReached bool) engine.Quota {
+	return engine.Quota{
+		Short:        &engine.Window{UsedPercent: shortUsed, WindowMinutes: 300, ResetAt: now.Add(2 * time.Hour), ObservedAt: now},
+		Long:         &engine.Window{UsedPercent: longUsed, WindowMinutes: 10080, ResetAt: now.Add(36 * time.Hour), ObservedAt: now},
+		LimitReached: limitReached,
+		ObservedAt:   now,
+		Source:       "poll",
+	}
+}
+
+func TestPollShowingQuotaAgainReleasesTheProxyCooldown(t *testing.T) {
+	r, host := newTestRouter(t)
+	pool := r.Pool("codex")
+
+	host.quota["codex-a.json"] = codexReading(time.Now(), 100, 100, true)
+	pool.refreshQuota(context.Background(), "codex-a.json", "ca")
+	if len(host.released) != 0 {
+		t.Fatalf("released %v while the limit is reached", host.released)
+	}
+
+	// The provider reset the weekly limit before the time in the 429.
+	host.quota["codex-a.json"] = codexReading(time.Now().Add(time.Second), 0, 0, false)
+	pool.refreshQuota(context.Background(), "codex-a.json", "ca")
+	if len(host.released) != 1 || host.released[0] != "codex-a.json" {
+		t.Fatalf("released = %v, want codex-a.json once", host.released)
+	}
+}
+
+func TestPollKeepsTheProxyCooldownWhileTheAccountIsSpent(t *testing.T) {
+	r, host := newTestRouter(t)
+	pool := r.Pool("codex")
+	host.quota["codex-a.json"] = codexReading(time.Now(), 30, 100, false)
+	pool.refreshQuota(context.Background(), "codex-a.json", "ca")
+	if len(host.released) != 0 {
+		t.Fatalf("released %v with the weekly window spent", host.released)
+	}
+}
+
+func TestManagerHostReleasesOnlyUsageLimitCooldowns(t *testing.T) {
+	ctx := context.Background()
+	mgr := coreauth.NewManager(nil, nil, nil)
+	for _, id := range []string{"codex-limited.json", "codex-healthy.json"} {
+		if _, err := mgr.Register(coreauth.WithSkipPersist(ctx), &coreauth.Auth{ID: id, Provider: "codex", Status: coreauth.StatusActive}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	retry := 37 * time.Hour
+	mgr.MarkResult(ctx, coreauth.Result{
+		AuthID: "codex-limited.json", Provider: "codex", Model: "gpt-test",
+		Error:      &coreauth.Error{HTTPStatus: http.StatusTooManyRequests, Code: "usage_limit_reached", Message: "The usage limit has been reached"},
+		RetryAfter: &retry, CredentialScope: true,
+	})
+	before, _ := mgr.GetByID("codex-limited.json")
+	if !onlyQuotaCooldowns(coreauth.CooldownSnapshotForAuth(before, time.Now())) {
+		t.Fatalf("setup: want a usage-limit cooldown, got %+v", coreauth.CooldownSnapshotForAuth(before, time.Now()))
+	}
+
+	host := newManagerHost(mgr, nil)
+	if released, err := host.ReleaseQuotaCooldown(ctx, "codex-healthy.json"); err != nil || released {
+		t.Fatalf("healthy account: released=%v err=%v", released, err)
+	}
+	if released, err := host.ReleaseQuotaCooldown(ctx, "codex-limited.json"); err != nil || !released {
+		t.Fatalf("limited account: released=%v err=%v", released, err)
+	}
+	after, _ := mgr.GetByID("codex-limited.json")
+	if views := coreauth.CooldownSnapshotForAuth(after, time.Now()); len(views) != 0 {
+		t.Fatalf("cooldown survived the release: %+v", views)
+	}
+}
+
+func TestOnlyQuotaCooldowns(t *testing.T) {
+	quota := coreauth.CooldownView{Reason: "credential_quota"}
+	other := coreauth.CooldownView{Reason: "unauthorized"}
+	if onlyQuotaCooldowns(nil) || onlyQuotaCooldowns([]coreauth.CooldownView{quota, other}) {
+		t.Fatal("released with no cooldown or with a cooldown of another cause")
+	}
+	if !onlyQuotaCooldowns([]coreauth.CooldownView{quota, {Reason: "quota"}}) {
+		t.Fatal("kept a cooldown made only of usage limits")
 	}
 }

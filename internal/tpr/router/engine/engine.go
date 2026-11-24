@@ -1723,6 +1723,25 @@ func (e *Engine) QuotaOf(id string) (Quota, bool) {
 	return a.Quota.clone(), true
 }
 
+// QuotaAvailable reports whether the account's latest quota shows room left
+// and the router holds no usage-limit block on it, account-wide or per model.
+func (e *Engine) QuotaAvailable(id string) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	now := e.now()
+	a := e.st.Accounts[id]
+	if a == nil || a.Quota == nil || a.Quota.LimitReached || a.BlockedUntil.After(now) {
+		return false
+	}
+	for _, until := range a.ModelBlocks {
+		if until.After(now) {
+			return false
+		}
+	}
+	r, ok := a.Quota.MinRemaining(now)
+	return ok && r > 0
+}
+
 // AccountIDs lists the accounts that still exist.
 func (e *Engine) AccountIDs() []string {
 	e.mu.Lock()

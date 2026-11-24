@@ -142,7 +142,10 @@ divided by the number of accounts. With 3 accounts a window starts every 100 min
   every `quota_poll_minutes`, at most 3 per pool every 15 seconds. API-key credentials have
   no usage endpoint and rely on response headers.
 - **Exhaustion.** A usage-limit rejection marks the account exhausted until its reset. Fresh
-  numbers showing quota again lift that early.
+  numbers showing quota again lift that early. A poll that shows quota again also clears the
+  server's own cooldown on the account, when every cooldown it holds comes from a usage limit,
+  because the server would otherwise stop offering the account until the reset time in the
+  rejection.
 - **Staleness.** When a window's reset time passes it counts as full until new numbers
   arrive. Data older than `stale_after_minutes` is flagged in the panel.
 
