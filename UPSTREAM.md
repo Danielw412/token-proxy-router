@@ -6,7 +6,7 @@ source is based on, and the release workflow stamps them into every binary.
 
 | Component | Upstream repository | Version |
 | --- | --- | --- |
-| Server | router-for-me/CLIProxyAPI | v8.1.3 |
+| Server | router-for-me/CLIProxyAPI | v8.1.8 |
 | Panel | router-for-me/Cli-Proxy-API-Management-Center | v1.28.3 |
 
 ## Picked ahead of a release
