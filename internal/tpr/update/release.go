@@ -38,7 +38,7 @@ const (
 
 // Version metadata stamped into release builds by the Makefile and release workflow.
 var (
-	UpstreamVersion = "v8.1.3"
+	UpstreamVersion = "v8.1.8"
 	PanelVersion    = "v1.28.3"
 )
 
